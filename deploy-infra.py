@@ -56,9 +56,9 @@ def check_server() -> None:
     )
     lsb_info = host.get_fact(LsbRelease)
     is_apt_based = lsb_info["id"].lower() in ["ubuntu", "debian"]
-    assert (
-        is_apt_based
-    ), f"Unsupported OS: {lsb_info['id']}. This script is designed for Debian/Ubuntu."
+    assert is_apt_based, (
+        f"Unsupported OS: {lsb_info['id']}. This script is designed for Debian/Ubuntu."
+    )
 
 
 def setup_server() -> None:
@@ -66,6 +66,7 @@ def setup_server() -> None:
     apt.packages(
         packages=packages,
         update=True,
+        _sudo=True,
     )
 
 
