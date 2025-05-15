@@ -88,6 +88,7 @@ def install_helm():
             "curl -s https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh | sudo bash",
             "karmadactl version",
         ],
+        _get_pty=True,
     )
 
     server.shell(
