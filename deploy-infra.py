@@ -33,13 +33,22 @@ CENTRAL_PROMETHEUS_IP_AND_PORT = "CENTRAL_PROM_IP:30090"
 CILIUM_CLUSTER_ID = 0
 CLUSTER_NAME = "default-cluster"
 CLUSTER_ROLE = "member"
-KARMADA_JOIN_CENTRAL_K8S_CLUSTER_NAME = None
+KARMADA_JOIN_CENTRAL_K8S_CLUSTER_NAME = "clustername"
 KARMADA_KUBECONFIG = "/etc/karmada/karmada-apiserver.config"
 LOCAL_KUBECONFIG = "~/.kube/config"
 POD_CIDR = "10.244.0.0/16"
 PROMETHEUS_OPERATOR_VERSION = "v0.78.2"
 SERVICE_CIDR = "10.96.0.0/12"
 SMO_IP = "127.0.0.1"
+
+
+MINIMAL_KARMADA_CONF_YAML = """apiVersion: config.karmada.io/v1alpha1
+kind: KarmadaInitConfig
+advertiseAddress: 127.0.0.1
+"""
+
+# or kind: InitConfiguration
+# or kind: KarmadaInitConfig ?
 
 
 def main() -> None:
@@ -85,7 +94,7 @@ def install_helm():
     server.shell(
         name="Install Karmada CLI if not present",
         commands=[
-            "curl -s https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh | sudo bash",
+            "sudo rm -f /usr/local/bin/karmadactl && curl -s https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh | sudo bash",
             "karmadactl version",
         ],
         _get_pty=True,
@@ -93,8 +102,16 @@ def install_helm():
 
     server.shell(
         name="Initialize Karmada control plane if not already initialized",
-        commands=[f"test -f {KARMADA_KUBECONFIG} || sudo karmadactl init"],
+        commands=[
+            f"""test -f {KARMADA_KUBECONFIG} || {{
+            sudo mkdir -p /etc/karmada
+            echo "{MINIMAL_KARMADA_CONF_YAML}" | sudo tee {KARMADA_KUBECONFIG} > /dev/null
+            sudo karmadactl init --config {KARMADA_KUBECONFIG}
+        }}
+        """
+        ],
     )
+
     server.shell(
         name=f"Join K8s cluster '{KARMADA_JOIN_CENTRAL_K8S_CLUSTER_NAME}' to Karmada",
         commands=[
