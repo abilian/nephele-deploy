@@ -44,7 +44,34 @@ SMO_IP = "127.0.0.1"
 
 MINIMAL_KARMADA_CONF_YAML = """apiVersion: config.karmada.io/v1alpha1
 kind: KarmadaInitConfig
-advertiseAddress: 127.0.0.1
+spec:
+  karmadaCrds: "https://github.com/karmada-io/karmada/releases/download/v1.13.2/crds.tar.gz"
+  etcd:
+    local:
+      imageRepository: "registry.k8s.io/etcd"
+      imageTag: "3.5.13-0"
+      initImage:
+        imageRepository: "docker.io/library/alpine"
+        imageTag: "3.19.1"
+  components:
+    karmadaAPIServer:
+      imageRepository: "registry.k8s.io/kube-apiserver"
+      imageTag: "v1.30.0"
+    karmadaAggregatedAPIServer:
+      imageRepository: "docker.io/karmada/karmada-aggregated-apiserver"
+      imageTag: "v1.13.2"
+    kubeControllerManager:
+      imageRepository: "registry.k8s.io/kube-controller-manager"
+      imageTag: "v1.30.0"
+    karmadaControllerManager:
+      imageRepository: "docker.io/karmada/karmada-controller-manager"
+      imageTag: "v1.13.2"
+    karmadaScheduler:
+      imageRepository: "docker.io/karmada/karmada-scheduler"
+      imageTag: "v1.13.2"
+    karmadaWebhook:
+      imageRepository: "docker.io/karmada/karmada-webhook"
+      imageTag: "v1.13.2"
 """
 
 # or kind: InitConfiguration
