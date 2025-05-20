@@ -2,7 +2,7 @@
 Minimal recipe to deploy
 - full docker dependencies and registry
 
-pyinfra -y -vvv --user USER HOST deploy-brussels.py
+pyinfra -y -vvv --user USER HOST deploy-docker.py
 """
 
 from pyinfra import host, logger
