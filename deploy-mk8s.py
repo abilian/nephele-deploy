@@ -6,8 +6,8 @@ pyinfra -y -vvv --user USER HOST deploy-mk8s.py
 """
 
 from pyinfra import host, logger
-from pyinfra.operations import server, apt
 from pyinfra.facts.server import LsbRelease
+from pyinfra.operations import apt, server
 
 
 def main() -> None:

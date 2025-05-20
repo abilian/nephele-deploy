@@ -1,9 +1,8 @@
 import io
-from pprint import pprint
 
-from pyinfra import host, state, logger
-from pyinfra.operations import server, files, apt
+from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
+from pyinfra.operations import apt, files, server
 
 # --- Configuration Variables (Fetched from inventory or defaults) ---
 # CLUSTER_ROLE = host.data.get("cluster_role", "member")
@@ -236,7 +235,7 @@ def install_cilium() -> None:
 
     server.shell(
         name="Install Cilium CNI via cilium-cli",
-        commands=[f"cilium install --values /tmp/cilium-values.yaml"],
+        commands=["cilium install --values /tmp/cilium-values.yaml"],
     )
 
     server.shell(

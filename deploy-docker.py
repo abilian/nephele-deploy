@@ -1,17 +1,13 @@
 """
 Minimal recipe to deploy
 - full docker dependencies and registry
-- brussels sample
 
 pyinfra -y -vvv --user USER HOST deploy-brussels.py
 """
 
-import platform
-
 from pyinfra import host, logger
-from pyinfra.operations import server, apt
-from pyinfra.facts.server import LsbRelease, User
-from pyinfra.facts.server import Arch
+from pyinfra.facts.server import Arch, LsbRelease, User
+from pyinfra.operations import apt, server
 
 REGISTRY_PORT = 5000
 
@@ -24,10 +20,6 @@ def main() -> None:
     install_docker_packages()
     docker_group()
     start_docker_registry()
-
-
-def print_user() -> None:
-    user = host.get_fact(User)
 
 
 def check_server() -> None:
@@ -75,7 +67,7 @@ def install_docker_source_list() -> None:
     lsb_info = host.get_fact(LsbRelease)
     distro = lsb_info["id"].lower()
     code_name = lsb_info["codename"]
-    arch = architecture = host.get_fact(Arch)
+    arch = host.get_fact(Arch)
     if arch == "x86_64":
         # arch = "i386"
         arch = "amd64"
