@@ -46,6 +46,7 @@ def setup_server() -> None:
         "gnupg",
         "git",
         "vim",
+        "build-essential",
     ]
     apt.packages(
         packages=packages,
