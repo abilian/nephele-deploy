@@ -7,13 +7,12 @@ pyinfra -y -vvv --user USER HOST deploy-mk8s.py
 
 from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
-from pyinfra.operations import apt, server
+from pyinfra.operations import apt, server, snap
 
 
 def main() -> None:
     check_server()
-    setup_server()
-    ensure_snap()
+    install_apt_packages()
     install_mk8s()
     dump_mk8s_config()
 
@@ -27,17 +26,8 @@ def check_server() -> None:
     )
 
 
-def setup_server() -> None:
-    packages = ["curl", "wget", "tar", "gnupg", "vim"]
-    apt.packages(
-        packages=packages,
-        update=True,
-        _sudo=True,
-    )
-
-
-def ensure_snap() -> None:
-    packages = ["snapd"]
+def install_apt_packages() -> None:
+    packages = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
     apt.packages(
         packages=packages,
         update=True,
@@ -46,19 +36,11 @@ def ensure_snap() -> None:
 
 
 def install_mk8s():
-    server.shell(
-        name="Install microk8s",
-        commands=[
-            "snap install microk8s --classic",
-        ],
-        _sudo=True,
-    )
-
-    server.shell(
-        name="Enable prometheus plugin",
-        commands=[
-            "microk8s enable prometheus",
-        ],
+    """Install microk8s via snap"""
+    snap.package(
+        name="Install snap packages",
+        packages=["microk8s", "prometheus"],
+        classic=True,
         _sudo=True,
     )
 
