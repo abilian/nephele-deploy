@@ -1,8 +1,10 @@
 import io
+import tempfile
+import uuid
 
 from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
-from pyinfra.operations import apt, files, server
+from pyinfra.operations import apt, files, server, snap
 
 # --- Configuration Variables (Fetched from inventory or defaults) ---
 # CLUSTER_ROLE = host.data.get("cluster_role", "member")
@@ -109,16 +111,21 @@ def setup_server() -> None:
 # Helm and Karmada Installation
 #
 def install_helm():
-    server.shell(
-        name="Install Helm if not present",
-        commands=[
-            "curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash",
-            "helm version",
-        ],
+    # server.shell(
+    #     name="Install Helm if not present",
+    #     commands=[
+    #         "curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash",
+    #         "helm version",
+    #     ],
+    # )
+    snap.package(
+        name="Install Helm via snap",
+        packages=["helm"],
+        classic=True,
     )
 
     server.shell(
-        name="Install Karmada CLI if not present",
+        name="Install (or reinstall) Karmada CLI",
         commands=[
             "sudo rm -f /usr/local/bin/karmadactl && curl -s https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh | sudo bash",
             "karmadactl version",
@@ -126,17 +133,35 @@ def install_helm():
         _get_pty=True,
     )
 
-    server.shell(
-        name="Initialize Karmada control plane if not already initialized",
-        commands=[
-            f"""test -f {KARMADA_KUBECONFIG} || {{
-            sudo mkdir -p /etc/karmada
-            echo "{MINIMAL_KARMADA_CONF_YAML}" | sudo tee {KARMADA_KUBECONFIG} > /dev/null
-            sudo karmadactl init --config {KARMADA_KUBECONFIG}
-        }}
-        """
-        ],
+    # Karmada setup
+    files.directory(
+        name="Ensure Karmada config directory exists",
+        path="/etc/karmada",
+        _sudo=True,
     )
+    files.put(
+        name="Create temporary Karmada config file",
+        src=io.StringIO(MINIMAL_KARMADA_CONF_YAML),
+        dest=KARMADA_KUBECONFIG,
+    )
+    server.shell(
+        name="Initialize Karmada config file",
+        commands=[
+            f"karmadactl init --config {KARMADA_KUBECONFIG}"
+        ],
+        _sudo=True,
+    )
+
+    # server.shell(
+    #     name="Initialize Karmada control plane if not already initialized",
+    #     commands=[
+    #         f"""test -f {KARMADA_KUBECONFIG} || {{
+    #         echo "{MINIMAL_KARMADA_CONF_YAML}" | sudo tee {KARMADA_KUBECONFIG} > /dev/null
+    #         sudo karmadactl init --config {KARMADA_KUBECONFIG}
+    #     }}
+    #     """
+    #     ],
+    # )
 
     server.shell(
         name=f"Join K8s cluster '{KARMADA_JOIN_CENTRAL_K8S_CLUSTER_NAME}' to Karmada",
