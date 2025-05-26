@@ -147,7 +147,7 @@ def install_helm():
     server.shell(
         name="Initialize Karmada config file",
         commands=[
-            f"karmadactl init --config {KARMADA_KUBECONFIG}"
+            f"karmadactl init --config {KARMADA_KUBECONFIG}",
         ],
         _sudo=True,
     )
