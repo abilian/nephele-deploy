@@ -32,6 +32,7 @@ def check_server() -> None:
 def setup_server() -> None:
     packages = ["ca-certificates", "lsb-release", "curl", "wget", "tar", "gnupg", "vim"]
     apt.packages(
+        name="Install base packages",
         packages=packages,
         update=True,
         _sudo=True,

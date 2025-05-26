@@ -101,6 +101,7 @@ def check_server() -> None:
 def setup_server() -> None:
     packages = ["curl", "wget", "tar", "gnupg"]
     apt.packages(
+        name="Install base packages",
         packages=packages,
         update=True,
         _sudo=True,

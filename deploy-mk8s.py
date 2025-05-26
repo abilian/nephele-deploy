@@ -29,6 +29,7 @@ def check_server() -> None:
 def install_apt_packages() -> None:
     packages = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
     apt.packages(
+        name="Install base packages",
         packages=packages,
         update=True,
         _sudo=True,
