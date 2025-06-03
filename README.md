@@ -2,12 +2,15 @@
 
 These scripts are designed to deploy the NEPHELE infrastructure, the SMO (Service Management Operations) and any additional demo on a server. They PyInfra for deployment and assumes you have a working SSH connection to the target server.
 
-Available scripts:
+Deployment scripts:
 
 -   `deploy-docker.py`
--   `eploy-brussels.py`
+-   `deploy-brussels.py`
 -   `deploy-mk8s.py`
 -   `deploy-infra.py`
+
+Utilities scripts:
+-   `deploy-clean-all.py`
 
 
 ## Script `deploy-docker.py`
@@ -104,7 +107,32 @@ Caveats:
 
 -   `Prometheus` is annouced deprecated, however an equivalent tool is proposed.
 
+## Utility script `deploy-clean-all.py`
 
+Remove all services, packages, docker images.
+
+WARNING: this may be dangerous.
+
+Command:
+```bash
+pyinfra -y -vvv --user USER HOST deploy-clean-all.py
+```
+
+-   Target host (HOST) is expected to bee Ubuntu or Debian.
+
+-   A pre existing account (USER) with `ssh` acces is required.
+
+What the script does:
+
+-   Check that the server is Ubuntu or Debian
+
+-   Stop systemd services
+
+-   Remove snap packages: micro8s, lxd
+
+-   Erase all Docker content (images, containers, volumes)
+
+-   Remove docker packages
 
 ## Script `deploy-infra.py`
 
