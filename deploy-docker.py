@@ -43,6 +43,7 @@ def install_docker() -> None:
     apt.key(
         name="Add the Docker apt gpg key",
         src="https://download.docker.com/linux/ubuntu/gpg",
+        _sudo=True,
     )
 
     lsb_info = host.get_fact(LsbRelease)
@@ -57,6 +58,7 @@ def install_docker() -> None:
     apt.repo(
         name="Add Docker repo",
         src=f"deb https://download.docker.com/linux/{distro} {code_name} stable",
+        _sudo=True,
     )
 
     packages = [
