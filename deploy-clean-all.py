@@ -24,8 +24,9 @@ SERVICES = [
     "snap.microk8s.daemon-flanneld",
     "snap.microk8s.daemon-k8s-dqlite",
     "snap.microk8s.daemon-kubelite",
+    "snap.prometheus.prometheus",
 ]
-SNAP_PACKAGES = ["micro8s", "lxd"]
+SNAP_PACKAGES = ["micro8s", "lxd", "helm"]
 APT_PACKAGES = ["docker-ce", "docker-ce-cli", "containerd.io"]
 
 

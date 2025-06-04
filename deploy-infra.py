@@ -4,7 +4,7 @@ import uuid
 
 from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
-from pyinfra.operations import apt, files, server, snap
+from pyinfra.operations import apt, files, server, snap, systemd
 
 # --- Configuration Variables (Fetched from inventory or defaults) ---
 # CLUSTER_ROLE = host.data.get("cluster_role", "member")
@@ -123,6 +123,14 @@ def install_karmada_helm():
         name="Install Helm via snap",
         packages=["helm"],
         classic=True,
+        _sudo=True,
+    )
+
+    systemd.service(
+        name="Enable/start helm service",
+        service="helm",
+        running=True,
+        enabled=True,
         _sudo=True,
     )
 
@@ -443,6 +451,14 @@ def install_prometheus() -> None:
         _sudo=True,
     )
     logger.info(f"Kube Prometheus Stack installed/upgraded on {CLUSTER_NAME}.")
+
+    systemd.service(
+        name="Enable/start Prometheus service",
+        service="snap.prometheus.prometheus",
+        running=True,
+        enabled=True,
+        _sudo=True,
+    )
 
 
 # if CLUSTER_ROLE == "central":
