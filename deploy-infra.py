@@ -126,13 +126,13 @@ def install_karmada_helm():
         _sudo=True,
     )
 
-    systemd.service(
-        name="Enable/start helm service",
-        service="helm",
-        running=True,
-        enabled=True,
-        _sudo=True,
-    )
+    # systemd.service(
+    #     name="Enable/start helm service",
+    #     service="helm",
+    #     running=True,
+    #     enabled=True,
+    #     _sudo=True,
+    # )
 
     server.shell(
         name="Install (or reinstall) Karmada CLI",
