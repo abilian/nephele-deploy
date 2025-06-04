@@ -13,7 +13,6 @@ from pyinfra.operations import apt, server, snap, systemd
 SERVICES = [
     "containerd",
     "docker",
-    "snap.lxd.activate",
     "snap.microk8s.daemon-apiserver-kicker",
     "snap.microk8s.daemon-apiserver-proxy",
     "snap.microk8s.daemon-cluster-agent",
@@ -24,7 +23,7 @@ SERVICES = [
     "snap.microk8s.daemon-kubelite",
     "snap.prometheus.prometheus",
 ]
-SNAP_PACKAGES = ["micro8s", "lxd", "helm"]
+SNAP_PACKAGES = ["microk8s", "helm", "prometheus"]
 APT_PACKAGES = ["docker-ce", "docker-ce-cli", "containerd.io"]
 
 
