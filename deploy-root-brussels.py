@@ -52,6 +52,7 @@ def setup_server() -> None:
         "build-essential",
     ]
     apt.packages(
+        name="Install base packages",
         packages=packages,
         update=True,
     )
@@ -83,6 +84,7 @@ def install_smo_source() -> None:
     # server.shell(name=f"empty {GITS} repository", commands=[f"rm -fr {GITS}/{SMO}"])
 
     git.repo(
+        name=f"clone/update {SMO} source",
         src=SMO_URL,
         dest=f"{GITS}/{SMO}",
         branch="main",
