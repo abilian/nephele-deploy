@@ -1,21 +1,18 @@
 """
 Minimal recipe to remove all services and packages
 
-pyinfra -y -vvv --user USER HOST deploy-clean-all.py
+Warning: connection as user root.
+
+pyinfra -y -vvv --user root HOST deploy-root-clean-all.py
 """
 
 from pyinfra import host, logger
-from pyinfra.facts.server import Arch, LinuxDistribution, LsbRelease, User
+from pyinfra.facts.server import LsbRelease
 from pyinfra.operations import apt, server, snap, systemd
 
 SERVICES = [
-    "apache2",
-    # "clamav-freshclam",
-    # "clamav-daemon",
     "containerd",
     "docker",
-    "redis-server",
-    "snap.lxd.activate",
     "snap.microk8s.daemon-apiserver-kicker",
     "snap.microk8s.daemon-apiserver-proxy",
     "snap.microk8s.daemon-cluster-agent",
@@ -26,7 +23,7 @@ SERVICES = [
     "snap.microk8s.daemon-kubelite",
     "snap.prometheus.prometheus",
 ]
-SNAP_PACKAGES = ["microk8s", "lxd", "helm", "prometheus"]
+SNAP_PACKAGES = ["microk8s", "helm", "prometheus"]
 APT_PACKAGES = ["docker-ce", "docker-ce-cli", "containerd.io"]
 
 
@@ -37,6 +34,8 @@ def main() -> None:
     remove_snap_packages()
     erase_all_docker_contents()
     remove_apt_packages()
+    erase_all_karmada_config()
+    erase_all_kubernetes_config()
 
 
 def check_server() -> None:
@@ -63,7 +62,6 @@ def stop_services() -> None:
             service=service,
             running=False,
             enabled=False,
-            _sudo=True,
         )
 
 
@@ -73,7 +71,6 @@ def remove_snap_packages() -> None:
             name=f"Remove {package}",
             packages=package,
             present=False,
-            _sudo=True,
         )
 
 
@@ -81,13 +78,11 @@ def erase_all_docker_contents() -> None:
     server.shell(
         name="Stop docker containers",
         commands=["docker stop $(docker ps -q) || true"],
-        _sudo=True,
     )
 
     server.shell(
         name="Erase all docker contents",
         commands=["docker system prune -a -f --volumes || true"],
-        _sudo=True,
     )
 
 
@@ -97,7 +92,30 @@ def remove_apt_packages() -> None:
         packages=APT_PACKAGES,
         present=False,
         extra_uninstall_args="--purge --autoremove",
-        _sudo=True,
+    )
+
+
+def erase_all_karmada_config() -> None:
+    server.shell(
+        name="remove /var/lib/karmada-etcd",
+        commands=["rm -fr /var/lib/karmada-etcd || true"],
+    )
+
+    server.shell(
+        name="remove /etc/karmada",
+        commands=["rm -fr /etc/karmada || true"],
+    )
+
+
+def erase_all_kubernetes_config() -> None:
+    server.shell(
+        name="remove /var/lib/kubelet",
+        commands=["rm -fr /var/lib/kubelet || true"],
+    )
+
+    server.shell(
+        name="remove ~/.kube",
+        commands=["rm -fr ~/.kube || true"],
     )
 
 
