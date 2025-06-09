@@ -26,6 +26,7 @@ SNAP_PACKAGES_CLASSIC = ["helm"]
 def main() -> None:
     result = None
     result_karmada = None
+
     check_server()
     install_apt_packages()
     ensure_go_in_root_path()
@@ -170,6 +171,7 @@ def install_karmada_cluster_from_sources() -> None:
     server.shell(name=f"make {GITS} repository", commands=[f"mkdir -p {GITS}"])
 
     git.repo(
+        name="clone/update karmada source",
         src="https://github.com/karmada-io/karmada.git",
         dest=f"{GITS}/karmada",
         branch="master",
