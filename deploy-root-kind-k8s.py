@@ -18,7 +18,6 @@ APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
 # APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd", "golang-go"]
 SNAP_PACKAGES = ["lxd"]
 SNAP_PACKAGES_CLASSIC = ["helm"]
-GOLANG_BIN_PACKAGE = "go1.24.3.linux-amd64.tar.gz"
 KARMADA_RELEASE_BRANCH = "release-1.14"
 
 SERVICES = [
@@ -34,10 +33,6 @@ def main() -> None:
 
     check_server()
     install_packages()
-    # install_apt_packages()
-    ensure_go_in_root_path()
-    # install_snap_packages()
-    # install_snap_packages_classic()
     start_services()
     install_kubectl()
     install_kind()

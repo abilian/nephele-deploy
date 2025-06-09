@@ -8,7 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+.python-version
 
 # Local stuff
 /sandbox/
 /tmp/
+
+# Secrets
+.envrc
