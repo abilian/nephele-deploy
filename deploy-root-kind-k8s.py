@@ -9,11 +9,6 @@ from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
 from pyinfra.operations import apt, git, server, snap, systemd
 
-START_SERVICES = [
-    "containerd",
-    "docker",
-    "snap.lxd.activate",
-]
 GITS = "/root/gits"
 
 APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
@@ -21,6 +16,14 @@ APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
 # APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd", "golang-go"]
 SNAP_PACKAGES = ["lxd"]
 SNAP_PACKAGES_CLASSIC = ["helm"]
+GOLANG_BIN_PACKAGE = "go1.24.3.linux-amd64.tar.gz"
+KARMADA_RELEASE_BRANCH = "release-1.14"
+
+SERVICES = [
+    "containerd",
+    "docker",
+    "snap.lxd.activate",
+]
 
 
 def main() -> None:
@@ -28,10 +31,11 @@ def main() -> None:
     result_karmada = None
 
     check_server()
-    install_apt_packages()
+    install_packages()
+    # install_apt_packages()
     ensure_go_in_root_path()
-    install_snap_packages()
-    install_snap_packages_classic()
+    # install_snap_packages()
+    # install_snap_packages_classic()
     start_services()
     install_kubectl()
     install_kind()
@@ -56,6 +60,13 @@ def check_server() -> None:
     )
 
 
+def install_packages() -> None:
+    """Install base packages"""
+    install_apt_packages()
+    install_snap_packages()
+    install_snap_packages_classic()
+
+
 def install_apt_packages() -> None:
     apt.packages(
         name="Install base packages",
@@ -64,14 +75,32 @@ def install_apt_packages() -> None:
     )
 
 
+def install_snap_packages():
+    snap.package(
+        name=f"Install 'non-classic' snap packages",
+        packages=SNAP_PACKAGES,
+        classic=False,
+    )
+
+
+def install_snap_packages_classic():
+    for package in SNAP_PACKAGES_CLASSIC:
+        # iter on list because error :
+        #  "a single snap name is needed to specify channel flags"
+        snap.package(
+            name=f"Install snap package {package}",
+            packages=package,
+            classic=True,
+        )
+
+
 def ensure_go_in_root_path():
-    GOLANG = "go1.24.3.linux-amd64.tar.gz"
     server.shell(
         name="Install go lang",
         commands=[
-            f"curl -LO https://go.dev/dl/{GOLANG}",
+            f"curl -LO https://go.dev/dl/{GOLANG_BIN_PACKAGE}",
             "rm -rf /usr/local/go",
-            f"tar -C /usr/local -xzf {GOLANG}",
+            f"tar -C /usr/local -xzf {GOLANG_BIN_PACKAGE}",
         ],
         _get_pty=True,
     )
@@ -81,30 +110,6 @@ def ensure_go_in_root_path():
         commands=["echo 'export PATH=\"/usr/local/go/bin:$PATH\"' >> ~/.bashrc"],
         _get_pty=True,
     )
-
-
-def install_snap_packages():
-    """Install lxd via snap"""
-    for package in SNAP_PACKAGES:
-        # iter on list because error :
-        #  "a single snap name is needed to specify channel flags"
-        snap.package(
-            name=f"Install snap package {package}",
-            packages=package,
-            classic=False,
-        )
-
-
-def install_snap_packages_classic():
-    """Install microk8s via snap"""
-    for package in SNAP_PACKAGES_CLASSIC:
-        # iter on list because error :
-        #  "a single snap name is needed to specify channel flags"
-        snap.package(
-            name=f"Install snap package {package}",
-            packages=package,
-            classic=True,
-        )
 
 
 def install_kubectl():
@@ -158,11 +163,10 @@ def create_kind_k8s_test_cluster():
 
 
 def start_services() -> None:
-    for service in START_SERVICES:
+    for service in SERVICES:
         systemd.service(
-            name=f"Enable/start {service}",
+            name=f"Start&enable service: {service}",
             service=service,
-            running=True,
             enabled=True,
         )
 
@@ -174,14 +178,9 @@ def install_karmada_cluster_from_sources() -> None:
         name="clone/update karmada source",
         src="https://github.com/karmada-io/karmada.git",
         dest=f"{GITS}/karmada",
-        branch="master",
-        pull=True,
-        rebase=False,
+        branch=KARMADA_RELEASE_BRANCH,
         user="root",
         group="root",
-        ssh_keyscan=False,
-        update_submodules=False,
-        recursive_submodules=False,
     )
     global result_karmada
     result_karmada = server.shell(
@@ -210,52 +209,54 @@ def install_cilium() -> None:
         ],
         _get_pty=True,
     )
-    # expected result:
 
-    # ~# kind get clusters
-    # karmada-host
-    # kind
-    # member1
-    # member2
-    # member3
 
-    # # export KUBECONFIG="$HOME/.kube/karmada.config"
-    # # kubectl config use-context karmada-host
-    #  Switched to context "karmada-host".
-    #
-    #
-    # root@sloop:~# kubectl config view
-    # apiVersion: v1
-    # clusters:
-    # - cluster:
-    #     certificate-authority-data: DATA+OMITTED
-    #     server: https://172.18.0.4:5443
-    #   name: karmada-apiserver
-    # - cluster:
-    #     certificate-authority-data: DATA+OMITTED
-    #     server: https://172.18.0.4:6443
-    #   name: kind-karmada-host
-    # contexts:
-    # - context:
-    #     cluster: karmada-apiserver
-    #     user: karmada-apiserver
-    #   name: karmada-apiserver
-    # - context:
-    #     cluster: kind-karmada-host
-    #     user: kind-karmada-host
-    #   name: karmada-host
-    # current-context: karmada-host
-    # kind: Config
-    # preferences: {}
-    # users:
-    # - name: karmada-apiserver
-    #   user:
-    #     client-certificate-data: DATA+OMITTED
-    #     client-key-data: DATA+OMITTED
-    # - name: kind-karmada-host
-    #   user:
-    #     client-certificate-data: DATA+OMITTED
-    #     client-key-data: DATA+OMITTED
+# expected result:
+
+# ~# kind get clusters
+# karmada-host
+# kind
+# member1
+# member2
+# member3
+
+# # export KUBECONFIG="$HOME/.kube/karmada.config"
+# # kubectl config use-context karmada-host
+#  Switched to context "karmada-host".
+#
+#
+# root@sloop:~# kubectl config view
+# apiVersion: v1
+# clusters:
+# - cluster:
+#     certificate-authority-data: DATA+OMITTED
+#     server: https://172.18.0.4:5443
+#   name: karmada-apiserver
+# - cluster:
+#     certificate-authority-data: DATA+OMITTED
+#     server: https://172.18.0.4:6443
+#   name: kind-karmada-host
+# contexts:
+# - context:
+#     cluster: karmada-apiserver
+#     user: karmada-apiserver
+#   name: karmada-apiserver
+# - context:
+#     cluster: kind-karmada-host
+#     user: kind-karmada-host
+#   name: karmada-host
+# current-context: karmada-host
+# kind: Config
+# preferences: {}
+# users:
+# - name: karmada-apiserver
+#   user:
+#     client-certificate-data: DATA+OMITTED
+#     client-key-data: DATA+OMITTED
+# - name: kind-karmada-host
+#   user:
+#     client-certificate-data: DATA+OMITTED
+#     client-key-data: DATA+OMITTED
 
 
 main()

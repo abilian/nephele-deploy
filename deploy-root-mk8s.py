@@ -13,7 +13,9 @@ from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
 from pyinfra.operations import apt, server, snap, systemd
 
-START_SERVICES = [
+APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
+
+SERVICES = [
     "containerd",
     "docker",
     "snap.lxd.activate",
@@ -33,9 +35,7 @@ SNAP_PACKAGES_CLASSIC = ["microk8s", "helm"]
 
 def main() -> None:
     check_server()
-    install_apt_packages()
-    install_mk8s()
-    install_mk8s_classic()
+    install_packages()
     start_services()
     show_status()
     dump_mk8s_config()
@@ -50,25 +50,25 @@ def check_server() -> None:
     )
 
 
+def install_packages() -> None:
+    install_apt_packages()
+    install_mk8s()
+    install_mk8s_classic()
+
+
 def install_apt_packages() -> None:
-    packages = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
     apt.packages(
         name="Install base packages",
-        packages=packages,
+        packages=APT_PACKAGES,
         update=True,
     )
 
 
 def install_mk8s():
-    """Install lxd via snap"""
-    for package in SNAP_PACKAGES:
-        # iter on list because error :
-        #  "a single snap name is needed to specify channel flags"
-        snap.package(
-            name=f"Install snap package {package}",
-            packages=package,
-            classic=False,
-        )
+    snap.package(
+        name=f"Install (non-classic) snap package",
+        packages=SNAP_PACKAGES,
+    )
 
 
 def install_mk8s_classic():
@@ -84,11 +84,10 @@ def install_mk8s_classic():
 
 
 def start_services() -> None:
-    for service in START_SERVICES:
+    for service in SERVICES:
         systemd.service(
-            name=f"Enable/start {service}",
+            name=f"Start and enable service: {service}",
             service=service,
-            running=True,
             enabled=True,
         )
 

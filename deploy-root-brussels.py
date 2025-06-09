@@ -11,6 +11,18 @@ from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
 from pyinfra.operations import apt, git, server
 
+BASE_APT_PACKAGES = [
+    "ca-certificates",
+    "lsb-release",
+    "curl",
+    "wget",
+    "tar",
+    "gnupg",
+    "git",
+    "vim",
+    "build-essential",
+]
+
 REGISTRY_PORT = 5000
 # SMO= "smo-fork"
 # SMO_URL = "https://gitlab.eclipse.org/sfermigier/smo-fork.git"
@@ -24,7 +36,7 @@ def main() -> None:
     check_server()
     setup_server()
     install_uv()
-    install_smo_source()
+    install_smo()
     fetch_hdarctl_binary()
     make_brussels_images()
     check_images()
@@ -40,20 +52,9 @@ def check_server() -> None:
 
 
 def setup_server() -> None:
-    packages = [
-        "ca-certificates",
-        "lsb-release",
-        "curl",
-        "wget",
-        "tar",
-        "gnupg",
-        "git",
-        "vim",
-        "build-essential",
-    ]
     apt.packages(
         name="Install base packages",
-        packages=packages,
+        packages=BASE_APT_PACKAGES,
         update=True,
     )
 
@@ -77,7 +78,7 @@ def install_uv() -> None:
     )
 
 
-def install_smo_source() -> None:
+def install_smo() -> None:
     server.shell(name=f"make {GITS} repository", commands=[f"mkdir -p {GITS}"])
 
     # # git.repo fails when the git repo does exists already, so:
@@ -88,13 +89,6 @@ def install_smo_source() -> None:
         src=SMO_URL,
         dest=f"{GITS}/{SMO}",
         branch="main",
-        pull=True,
-        rebase=False,
-        user="root",
-        group="root",
-        ssh_keyscan=False,
-        update_submodules=False,
-        recursive_submodules=False,
     )
     server.shell(
         name="build SMO",

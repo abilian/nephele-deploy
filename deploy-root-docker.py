@@ -11,11 +11,30 @@ from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease, User
 from pyinfra.operations import apt, server, systemd
 
+BASE_APT_PACKAGES = [
+    "ca-certificates",
+    "lsb-release",
+    "curl",
+    "wget",
+    "tar",
+    "gnupg",
+    "vim",
+]
+DOCKER_APT_PACKAGES = [
+    "docker-ce",
+    "docker-ce-cli",
+    "containerd.io",
+    # "docker-buildx-plugin",
+    # "docker-compose-plugin",
+]
+
+
 REGISTRY_PORT = 5000
 
 
 def main() -> None:
     check_server()
+    update_server()
     setup_server()
     install_docker()
     docker_group()
@@ -31,12 +50,16 @@ def check_server() -> None:
     )
 
 
+def update_server() -> None:
+    apt.update(name="Update apt cache")
+    apt.upgrade(name="Upgrade system packages")
+
+
 def setup_server() -> None:
-    packages = ["ca-certificates", "lsb-release", "curl", "wget", "tar", "gnupg", "vim"]
+    packages = BASE_APT_PACKAGES
     apt.packages(
         name="Install base packages",
         packages=packages,
-        update=True,
     )
 
 
@@ -55,13 +78,7 @@ def install_docker() -> None:
         src=f"deb https://download.docker.com/linux/{distro} {code_name} stable",
     )
 
-    packages = [
-        "docker-ce",
-        "docker-ce-cli",
-        "containerd.io",
-        # "docker-buildx-plugin",
-        # "docker-compose-plugin",
-    ]
+    packages = DOCKER_APT_PACKAGES
     apt.packages(
         name="Install Docker packages",
         packages=packages,
@@ -98,5 +115,3 @@ def start_docker_registry() -> None:
     )
     print(result)
 
-
-main()
