@@ -7,7 +7,7 @@ pyinfra -y -vv --user root HOST deploy-root-kind-k8s.py
 
 from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
-from pyinfra.operations import apt, server, snap, systemd, git
+from pyinfra.operations import apt, git, server, snap, systemd
 
 START_SERVICES = [
     "containerd",
