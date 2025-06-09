@@ -13,6 +13,8 @@ from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
 from pyinfra.operations import apt, server, snap, systemd
 
+from common import check_server
+
 APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
 
 SERVICES = [
@@ -39,15 +41,6 @@ def main() -> None:
     start_services()
     show_status()
     dump_mk8s_config()
-
-
-def check_server() -> None:
-    logger.info("Starting Common Prerequisite Checks")
-    lsb_info = host.get_fact(LsbRelease)
-    is_apt_based = lsb_info["id"].lower() in ["ubuntu", "debian"]
-    assert is_apt_based, (
-        f"Unsupported OS: {lsb_info['id']}. This script is designed for Debian/Ubuntu."
-    )
 
 
 def install_packages() -> None:

@@ -9,6 +9,8 @@ from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
 from pyinfra.operations import apt, git, server, snap, systemd
 
+from common import check_server
+
 GITS = "/root/gits"
 
 APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
@@ -51,15 +53,6 @@ def main() -> None:
         logger.info(f"on {host.name}: {' '.join(result.stdout)}")
 
 
-def check_server() -> None:
-    logger.info("Starting Common Prerequisite Checks")
-    lsb_info = host.get_fact(LsbRelease)
-    is_apt_based = lsb_info["id"].lower() in ["ubuntu", "debian"]
-    assert is_apt_based, (
-        f"Unsupported OS: {lsb_info['id']}. This script is designed for Debian/Ubuntu."
-    )
-
-
 def install_packages() -> None:
     """Install base packages"""
     install_apt_packages()
@@ -79,7 +72,6 @@ def install_snap_packages():
     snap.package(
         name=f"Install 'non-classic' snap packages",
         packages=SNAP_PACKAGES,
-        classic=False,
     )
 
 

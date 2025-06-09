@@ -7,9 +7,11 @@ Warning: connection as user root.
 pyinfra -y -vvv --user root HOST deploy-root-brussels.py
 """
 
-from pyinfra import host, logger
-from pyinfra.facts.server import LsbRelease
-from pyinfra.operations import apt, git, server
+from pyinfra import host
+from pyinfra.facts.files import File
+from pyinfra.operations import apt, git, server, files, python
+
+from common import check_server
 
 BASE_APT_PACKAGES = [
     "ca-certificates",
@@ -42,15 +44,6 @@ def main() -> None:
     check_images()
 
 
-def check_server() -> None:
-    logger.info("Starting Common Prerequisite Checks")
-    lsb_info = host.get_fact(LsbRelease)
-    is_apt_based = lsb_info["id"].lower() in ["ubuntu", "debian"]
-    assert is_apt_based, (
-        f"Unsupported OS: {lsb_info['id']}. This script is designed for Debian/Ubuntu."
-    )
-
-
 def setup_server() -> None:
     apt.packages(
         name="Install base packages",
@@ -60,26 +53,27 @@ def setup_server() -> None:
 
 
 def install_uv() -> None:
-    server.shell(
-        name="install uv",
-        commands=[
-            "[ -f ${HOME}/.local/bin/uv ] || curl -LsSf https://astral.sh/uv/install.sh | sh"
-        ],
-        _get_pty=True,
-    )
-    server.shell(
-        name="configure .bashrc",
-        commands=[
-            "mkdir -p ~/bin",
-            "echo 'export PATH=\"~/.local/bin:~/bin:$PATH\"' >> ~/.bashrc",
-            "echo 'export UV_LINK_MODE=hardlink' >> ~/.bashrc",
-        ],
-        _get_pty=True,
-    )
+    fact = host.get_fact(File, "/usr/bin/uv")
+    if not fact:
+        server.shell(
+            name="install uv",
+            commands=[
+                "curl -LsSf https://astral.sh/uv/install.sh | sh"
+            ],
+        )
+        server.shell(
+            name="copy uv to /usr/bin",
+            commands=[
+                "cp /root/.local/bin/uv /usr/bin/uv",
+            ]
+        )
 
 
 def install_smo() -> None:
-    server.shell(name=f"make {GITS} repository", commands=[f"mkdir -p {GITS}"])
+    files.directory(
+        name=f"make {GITS} repository",
+        path=GITS,
+    )
 
     # # git.repo fails when the git repo does exists already, so:
     # server.shell(name=f"empty {GITS} repository", commands=[f"rm -fr {GITS}/{SMO}"])
@@ -93,9 +87,8 @@ def install_smo() -> None:
     server.shell(
         name="build SMO",
         commands=[
-            f"cd {GITS}/{SMO} && /root/.local/bin/uv venv --python 3.12",
-            f". {GITS}/{SMO}/.venv/bin/activate",
-            f"cd {GITS}/{SMO} && /root/.local/bin/uv sync",
+            f"cd {GITS}/{SMO} && uv venv --python 3.12",
+            f"cd {GITS}/{SMO} && uv sync",
         ],
         _get_pty=True,
     )
@@ -131,6 +124,15 @@ def check_images() -> None:
     server.shell(
         name="check images in registry",
         commands=["curl -X GET http://localhost:5000/v2/_catalog"],
+    )
+    files.put(
+        name="put check-registry.py script",
+        src="server-scripts/check-registry.py",
+        dest="/root/check-registry.py",
+    )
+    server.shell(
+        name="run check-registry.py script",
+        commands=["python3 /root/check-registry.py"],
     )
 
 
