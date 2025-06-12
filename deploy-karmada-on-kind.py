@@ -4,6 +4,7 @@ Minimal recipe to deploy king kubernetes engine and tools on a ubuntu like distr
 
 pyinfra -y -vv --user root HOST deploy-root-kind-k8s.py
 """
+
 from pyinfra import host
 from pyinfra.facts.files import File
 from pyinfra.operations import apt, git, server, snap, systemd, files

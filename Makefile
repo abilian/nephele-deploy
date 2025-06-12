@@ -1,3 +1,8 @@
+deploy:
+	pyinfra -y --user root inventory.py setup-server.py
+	pyinfra -y --user root inventory.py run-bxl-demo.py
+	pyinfra -y --user root inventory.py
+
 sync-code:
 	git pull eclipse main
 	git pull origin main
@@ -12,3 +17,6 @@ push-code:
 format:
 	isort .
 	ruff format .
+
+
+.PHONY: deploy sync-code push-code format

@@ -36,7 +36,7 @@ def main() -> None:
     check_server()
     setup_server()
     install_smo()
-    make_brussels_images()
+    make_brussels_demo_images()
     check_images()
 
 
@@ -73,7 +73,7 @@ def install_smo() -> None:
     )
 
 
-def make_brussels_images() -> None:
+def make_brussels_demo_images() -> None:
     workdir = f"{GITS}/{SMO}/examples/brussels-demo/"
     server.shell(
         name="make brussels images",

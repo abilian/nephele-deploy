@@ -110,6 +110,7 @@ def dump_mk8s_config():
         ],
     )
 
+
 def install_karmada_cluster_from_sources() -> None:
     files.directory(
         name=f"create {GITS} directory",

@@ -35,9 +35,6 @@ DOCKER_APT_PACKAGES = [
 ]
 
 
-
-
-
 def main() -> None:
     check_server()
     update_server()
@@ -60,6 +57,7 @@ def setup_server() -> None:
         name="Install base packages",
         packages=packages,
     )
+
 
 #
 # Go
@@ -84,15 +82,13 @@ def install_uv() -> None:
     if not fact:
         server.shell(
             name="install uv",
-            commands=[
-                "curl -LsSf https://astral.sh/uv/install.sh | sh"
-            ],
+            commands=["curl -LsSf https://astral.sh/uv/install.sh | sh"],
         )
         server.shell(
             name="copy uv to /usr/bin",
             commands=[
                 "cp /root/.local/bin/uv /usr/bin/uv",
-            ]
+            ],
         )
 
 

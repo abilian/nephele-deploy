@@ -48,10 +48,3 @@ def fix_known_hosts(ip_address: str):
 
 if __name__ == "__main__":
     main()
-
-# servers = client.servers.get_all()
-# for server in servers:
-#     print(f"{server.id=} {server.name=} {server.status=}")
-#     if server.name == "nephele1":
-#         print(f"Rebuilding server {server.name} with image {IMAGE.name}")
-#         server.rebuild(image=IMAGE)
