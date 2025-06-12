@@ -51,6 +51,8 @@ Execute the following `pyinfra` scripts in order. Replace `TARGET_HOST` with you
     uv run pyinfra -y --user root TARGET_HOST 2-deploy-karmada-on-mk8s.py
     ```
 
+(Or just run `make deploy`).
+
 ## Post-Deployment: Accessing the Environment
 
 After the scripts complete, your target server will be running a single-node `microk8s` cluster with Karmada managing it.
