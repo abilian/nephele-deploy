@@ -11,9 +11,10 @@ pyinfra -y -vv --user root HOST deploy-root-mk8s.py
 
 from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
-from pyinfra.operations import apt, server, snap, systemd
+from pyinfra.operations import apt, server, snap, systemd, files, git
 
 from common import check_server
+from constants import GITS, KARMADA_RELEASE_BRANCH
 
 APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
 
@@ -41,6 +42,8 @@ def main() -> None:
     start_services()
     show_status()
     dump_mk8s_config()
+    install_karmada_cluster_from_sources()
+    install_cilium()
 
 
 def install_packages() -> None:
@@ -70,7 +73,7 @@ def install_mk8s_classic():
         # iter on list because error :
         #  "a single snap name is needed to specify channel flags"
         snap.package(
-            name=f"Install snap package {package}",
+            name=f"Install classic snap package {package}",
             packages=package,
             classic=True,
         )
@@ -87,7 +90,7 @@ def start_services() -> None:
 
 def show_status():
     server.shell(
-        name="Show microk8s status",
+        name="Wait for microk8s to be ready",
         commands=[
             "microk8s status --wait-ready",
         ],
@@ -95,12 +98,57 @@ def show_status():
 
 
 def dump_mk8s_config():
+    files.directory(
+        name="Create .kube directory",
+        path="/root/.kube/",
+        mode="0700",
+    )
     server.shell(
         name="Dump microk8s config",
         commands=[
-            "[ -f  ~/.kube/config ] || mkdir -p ~/.kube/",
-            "microk8s config > ~/.kube/config",
+            "microk8s config > /root/.kube/config",
         ],
+    )
+
+def install_karmada_cluster_from_sources() -> None:
+    files.directory(
+        name=f"create {GITS} directory",
+        path=GITS,
+    )
+    git.repo(
+        name="clone/update karmada source",
+        src="https://github.com/karmada-io/karmada.git",
+        dest=f"{GITS}/karmada",
+        branch=KARMADA_RELEASE_BRANCH,
+        user="root",
+        group="root",
+    )
+    server.shell(
+        name="setup Karmada",
+        commands=[
+            # f"cd {GITS}/karmada && hack/local-up-karmada.sh",
+            # Trying something else:
+            f"cd {GITS}/karmada && hack/deploy-karmada.sh ~/.kube/config microk8s local",
+        ],
+    )
+
+
+def install_cilium() -> None:
+    CILIUM_CLI_VERSION = "v0.18.3"
+    CLI_ARCH = "amd64"
+    FILE = f"cilium-linux-{CLI_ARCH}.tar.gz"
+    server.shell(
+        name="install Cilium",
+        commands=[
+            "rm -f /usr/local/bin/cilium",
+            f"curl -LO https://github.com/cilium/cilium-cli/releases/download/{CILIUM_CLI_VERSION}/{FILE}",
+            f"curl -LO https://github.com/cilium/cilium-cli/releases/download/{CILIUM_CLI_VERSION}/{FILE}.sha256sum",
+            f"sha256sum --check {FILE}.sha256sum",
+            f"tar xzvfC cilium-linux-{CLI_ARCH}.tar.gz /usr/local/bin",
+            f"rm -f {FILE}",
+            f"rm -f {FILE}.sha256sum",
+        ],
+        _get_pty=True,
     )
 
 

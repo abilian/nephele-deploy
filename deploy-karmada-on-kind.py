@@ -4,12 +4,12 @@ Minimal recipe to deploy king kubernetes engine and tools on a ubuntu like distr
 
 pyinfra -y -vv --user root HOST deploy-root-kind-k8s.py
 """
-
-from pyinfra import host, logger
-from pyinfra.facts.server import LsbRelease
-from pyinfra.operations import apt, git, server, snap, systemd
+from pyinfra import host
+from pyinfra.facts.files import File
+from pyinfra.operations import apt, git, server, snap, systemd, files
 
 from common import check_server
+from constants import KARMADA_RELEASE_BRANCH
 
 GITS = "/root/gits"
 
@@ -18,7 +18,6 @@ APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
 # APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd", "golang-go"]
 SNAP_PACKAGES = ["lxd"]
 SNAP_PACKAGES_CLASSIC = ["helm"]
-KARMADA_RELEASE_BRANCH = "release-1.14"
 
 SERVICES = [
     "containerd",
@@ -28,24 +27,15 @@ SERVICES = [
 
 
 def main() -> None:
-    result = None
-    result_karmada = None
-
     check_server()
     install_packages()
     start_services()
+
     install_kubectl()
     install_kind()
-    create_kind_k8s_test_cluster()
-    install_karmada_cluster_from_sources()
-    install_cilium()
-
-    if result and result.changed and result.stdout:
-        logger.info(
-            f"on {host.name}: {' '.join(result.stdout)}\n{' '.join(result.stderr)}"
-        )
-    if result_karmada and result_karmada.changed and result_karmada.stdout:
-        logger.info(f"on {host.name}: {' '.join(result.stdout)}")
+    # create_kind_k8s_test_cluster()
+    # install_karmada_cluster_from_sources()
+    # install_cilium()
 
 
 def install_packages() -> None:
@@ -81,24 +71,6 @@ def install_snap_packages_classic():
         )
 
 
-def ensure_go_in_root_path():
-    server.shell(
-        name="Install go lang",
-        commands=[
-            f"curl -LO https://go.dev/dl/{GOLANG_BIN_PACKAGE}",
-            "rm -rf /usr/local/go",
-            f"tar -C /usr/local -xzf {GOLANG_BIN_PACKAGE}",
-        ],
-        _get_pty=True,
-    )
-
-    server.shell(
-        name="Ensure go in root path",
-        commands=["echo 'export PATH=\"/usr/local/go/bin:$PATH\"' >> ~/.bashrc"],
-        _get_pty=True,
-    )
-
-
 def install_kubectl():
     server.shell(
         name="install kubectl",
@@ -108,18 +80,20 @@ def install_kubectl():
             'curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"',
             "install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
         ],
-        _get_pty=True,
     )
 
 
 def install_kind():
+    fact = host.get_fact(File, "/usr/local/bin/kind")
+    if fact:
+        return
+
     server.shell(
         name="Install kind",
         commands=[
-            ". /root/.bashrc && go install sigs.k8s.io/kind@v0.29.0",
+            "go install sigs.k8s.io/kind@v0.29.0",
             "cp -f /root/go/bin/kind /usr/local/bin",
         ],
-        _get_pty=True,
     )
 
 
@@ -127,25 +101,21 @@ def create_kind_k8s_test_cluster():
     server.shell(
         name="create kind k8s cluster for test",
         commands=[
-            "kind get clusters| grep '^kind$' && kind delete cluster||true",
+            "kind delete cluster || true",
             "kind create cluster",
         ],
-        _get_pty=True,
     )
-    global result
     result = server.shell(
         name="show cluster info",
         commands=[
             "kubectl cluster-info --context kind-kind",
         ],
-        _get_pty=True,
     )
     server.shell(
         name="delete test cluster",
         commands=[
             "kind get clusters| grep '^kind$' && kind delete cluster||true",
         ],
-        _get_pty=True,
     )
 
 
@@ -159,8 +129,10 @@ def start_services() -> None:
 
 
 def install_karmada_cluster_from_sources() -> None:
-    server.shell(name=f"make {GITS} repository", commands=[f"mkdir -p {GITS}"])
-
+    files.directory(
+        name=f"create {GITS} directory",
+        path=GITS,
+    )
     git.repo(
         name="clone/update karmada source",
         src="https://github.com/karmada-io/karmada.git",
@@ -169,13 +141,11 @@ def install_karmada_cluster_from_sources() -> None:
         user="root",
         group="root",
     )
-    global result_karmada
-    result_karmada = server.shell(
+    server.shell(
         name="setup Karmada",
         commands=[
-            f". /root/.bashrc && cd {GITS}/karmada && hack/local-up-karmada.sh",
+            f"cd {GITS}/karmada && hack/local-up-karmada.sh",
         ],
-        _get_pty=True,
     )
 
 
