@@ -9,8 +9,6 @@ Warning: connection as user root.
 pyinfra -y -vv --user root HOST deploy-root-mk8s.py
 """
 
-from pyinfra import host, logger
-from pyinfra.facts.server import LsbRelease
 from pyinfra.operations import apt, files, git, server, snap, systemd
 
 from common import check_server
@@ -41,9 +39,13 @@ def main() -> None:
     install_packages()
     start_services()
     show_status()
-    dump_mk8s_config()
-    install_karmada_cluster_from_sources()
-    install_cilium()
+
+    configure_mk8s()
+    setup_cilium()
+    install_karmada_controller()
+    setup_karmada_cluster()
+
+    # install_karmada_cluster_from_sources()
 
 
 def install_packages() -> None:
@@ -97,57 +99,109 @@ def show_status():
     )
 
 
-def dump_mk8s_config():
+def configure_mk8s():
     files.directory(
         name="Create .kube directory",
         path="/root/.kube/",
         mode="0700",
     )
     server.shell(
-        name="Dump microk8s config",
+        name="Generate microk8s config",
         commands=[
             "microk8s config > /root/.kube/config",
         ],
     )
 
 
-def install_karmada_cluster_from_sources() -> None:
-    files.directory(
-        name=f"create {GITS} directory",
-        path=GITS,
-    )
-    git.repo(
-        name="clone/update karmada source",
-        src="https://github.com/karmada-io/karmada.git",
-        dest=f"{GITS}/karmada",
-        branch=KARMADA_RELEASE_BRANCH,
-        user="root",
-        group="root",
+def install_karmada_controller() -> None:
+    INSTALLER_URL = "https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh"
+    files.file(
+        name="Remove old karmada CLI",
+        path="/usr/local/bin/kubectl-karmada",
+        present=False,
     )
     server.shell(
-        name="setup Karmada",
+        name="Install Karmada CLI",
         commands=[
-            # f"cd {GITS}/karmada && hack/local-up-karmada.sh",
-            # Trying something else:
-            f"cd {GITS}/karmada && hack/deploy-karmada.sh ~/.kube/config microk8s local",
+            f"curl -s {INSTALLER_URL} | sudo bash -s kubectl-karmada",
+        ],
+        _get_pty=True,
+    )
+
+
+def setup_karmada_cluster() -> None:
+    # server.shell(
+    #     name="Deinitialize Karmada cluster",
+    #     commands=[
+    #         "microk8s kubectl karmada deinit",
+    #     ],
+    # )
+
+    # FIXME: this is not idempotent, it will fail if karmada is already initialized.
+    server.shell(
+        name="Initialize Karmada cluster",
+        commands=[
+            "microk8s kubectl karmada init",
+        ],
+    )
+    server.shell(
+        name="Wait for Karmada to be ready",
+        commands=[
+            "microk8s kubectl wait --for=condition=Ready pods --all -n karmada-system --timeout=300s",
         ],
     )
 
 
+def setup_cilium() -> None:
+    server.shell(
+        name="Setup Cilium",
+        commands=[
+            "microk8s enable community",
+            "microk8s enable cilium",
+        ],
+    )
+
+
+# def install_karmada_cluster_from_sources() -> None:
+#     files.directory(
+#         name=f"create {GITS} directory",
+#         path=GITS,
+#     )
+#     git.repo(
+#         name="clone/update karmada source",
+#         src="https://github.com/karmada-io/karmada.git",
+#         dest=f"{GITS}/karmada",
+#         branch=KARMADA_RELEASE_BRANCH,
+#         user="root",
+#         group="root",
+#     )
+#     server.shell(
+#         name="setup Karmada",
+#         commands=[
+#             # f"cd {GITS}/karmada && hack/local-up-karmada.sh",
+#             # Trying something else:
+#             f"cd {GITS}/karmada && hack/deploy-karmada.sh ~/.kube/config microk8s local",
+#         ],
+#     )
+
+
+
+
 def install_cilium() -> None:
     CILIUM_CLI_VERSION = "v0.18.3"
+    CILIUM_BASE_URL = f"https://github.com/cilium/cilium-cli/releases/download/{CILIUM_CLI_VERSION}"
     CLI_ARCH = "amd64"
-    FILE = f"cilium-linux-{CLI_ARCH}.tar.gz"
+    FILE_NAME = f"cilium-linux-{CLI_ARCH}.tar.gz"
     server.shell(
         name="install Cilium",
         commands=[
             "rm -f /usr/local/bin/cilium",
-            f"curl -LO https://github.com/cilium/cilium-cli/releases/download/{CILIUM_CLI_VERSION}/{FILE}",
-            f"curl -LO https://github.com/cilium/cilium-cli/releases/download/{CILIUM_CLI_VERSION}/{FILE}.sha256sum",
-            f"sha256sum --check {FILE}.sha256sum",
+            f"curl -LO {CILIUM_BASE_URL}/{FILE_NAME}",
+            f"curl -LO {CILIUM_BASE_URL}/{FILE_NAME}.sha256sum",
+            f"sha256sum --check {FILE_NAME}.sha256sum",
             f"tar xzvfC cilium-linux-{CLI_ARCH}.tar.gz /usr/local/bin",
-            f"rm -f {FILE}",
-            f"rm -f {FILE}.sha256sum",
+            f"rm -f {FILE_NAME}",
+            f"rm -f {FILE_NAME}.sha256sum",
         ],
         _get_pty=True,
     )
