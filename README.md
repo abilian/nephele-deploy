@@ -245,41 +245,11 @@ More details in the [TODO](./TODO.md)
 
 The notes below are for other/older approaches, that weren't successful (so far), but may work eventually.
 
-
 ## Using the `kind`-based Deployment (NOT WORKING)
 
-Our current approach for local development and testing utilizes `kind` (Kubernetes in Docker) to create a multi-cluster Kubernetes environment managed by Karmada.
+This approach for local development and testing utilizes `kind` (Kubernetes in Docker) to create a multi-cluster Kubernetes environment managed by Karmada.
 
-Other approaches are certainly possible, but were harder to set up for us.
-
-This section outlines the new, preferred method for setting up a development environment.
-
-*   **Prerequisites:**
-    *   A target server (Linux, preferably Ubuntu or Debian) where you have `root` SSH access (e.g., passwordless sudo for your user, or direct root login if configured and understood).
-    *   Ensure `pyinfra` and its dependencies are installed in your local environment (typically via `uv sync` in the project directory).
-
-*   **Deployment Sequence (Run from your local machine, targeting `YOUR_HOST` as `root`):**
-
-    1.  **`pyinfra -y --user root YOUR_HOST deploy-root-docker.py`**
-        *   **Purpose:** Installs Docker Engine and starts a local, insecure Docker registry container listening on port 5000.
-        *   **Note:** `YOUR_HOST` is the IP address or hostname of your target server.
-
-    2.  **`pyinfra -y --user root YOUR_BUILD_HOST deploy-root-brussels.py`**
-        *   **Purpose:**
-            *   Clones the SMO source code (defaulting to the main NEPHELE SMO repository).
-            *   Installs `hdarctl`.
-            *   Builds the "Brussels Demo" Docker images.
-            *   Pushes these images to the local Docker registry (from step 1) on `YOUR_BUILD_HOST`.
-        *   **Note:**
-            *   `YOUR_BUILD_HOST` is typically the same as `YOUR_HOST`.
-            *   If different, ensure the Docker registry on `YOUR_HOST` (if that's where Karmada will run) is accessible from `YOUR_BUILD_HOST`, or adjust image pushing/pulling strategies accordingly.
-
-    3.  **`pyinfra -y --user root YOUR_HOST deploy-root-kind-k8s.py`**
-        *   **Purpose:**
-            *   Installs `kind` (Kubernetes in Docker), Go (a `kind` dependency), Helm, and Cilium (as the CNI).
-            *   Uses `kind` to create multiple Kubernetes clusters within Docker containers (e.g., `karmada-host` for the control plane, and `member1`, `member2`, etc., for applications).
-            *   Installs and configures the Karmada control plane on the `karmada-host` cluster.
-            *   Registers the `member` clusters with the Karmada control plane.
+The script to use is `deploy-karmada-on-kind.py` instead of `2-depl
 
 * **Post-Deployment Interaction:**
     *   You will have a Karmada control plane and several member Kubernetes clusters running within Docker containers on `YOUR_HOST`.
@@ -291,15 +261,14 @@ This section outlines the new, preferred method for setting up a development env
     *   The Karmada installation using `kind` can be resource-intensive on `YOUR_HOST` (CPU and RAM) and may take a significant amount of time to complete.
     *   Advanced configuration of Karmada resources (like `PropagationPolicy`, `ClusterPropagationPolicy`) via YAML for custom deployments is an area for further exploration beyond the default setup.
 
-## What Changed in Our Approach (From `microk8s` to `kind`)
+## Why Kind? (Vs. microk8s, ie. our previous attempt)
 
-*   **Previous Method:** Initial attempts to set up the multi-cluster Kubernetes environment for Karmada and SMO utilized `microk8s`. This approach presented several challenges in achieving a consistently stable and easily reproducible setup suitable for rapid development iterations.
-*   **New Approach: `kind` (Kubernetes in Docker)**
-    *   **Rationale for Change:**
-        *   **Developer-Focused:** `kind` is explicitly designed for creating local Kubernetes clusters for development and testing purposes.
-        *   **Karmada Alignment:** Crucially, `kind` is the **default and recommended method used in Karmada's official installation scripts** and examples. This suggests better inherent compatibility and a more streamlined setup process for the Karmada control plane and its member clusters.
-        *   **Reproducibility & Isolation:** Using Docker containers for clusters provides good isolation and improves the reproducibility of the environment.
-    *   **Goal:** To rapidly establish a functional multi-cluster Karmada environment on a single server, enabling the team to focus more effectively on SMO and H3NI component development and integration.
+
+*   **Rationale for Change:**
+    *   **Developer-Focused:** `kind` is explicitly designed for creating local Kubernetes clusters for development and testing purposes.
+    *   **Karmada Alignment:** Crucially, `kind` is the **default and recommended method used in Karmada's official installation scripts** and examples. This suggests better inherent compatibility and a more streamlined setup process for the Karmada control plane and its member clusters.
+    *   **Reproducibility & Isolation:** Using Docker containers for clusters provides good isolation and improves the reproducibility of the environment.
+*   **Goal:** To rapidly establish a functional multi-cluster Karmada environment on a single server, enabling the team to focus more effectively on SMO and H3NI component development and integration.
 
 ## Next Steps
 
