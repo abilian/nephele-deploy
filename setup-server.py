@@ -10,10 +10,10 @@ pyinfra -y -vvv --user root HOST deploy-root-docker.py
 from pyinfra import host
 from pyinfra.facts.files import File
 from pyinfra.facts.server import LsbRelease, User
-from pyinfra.operations import apt, server, docker, git
+from pyinfra.operations import apt, docker, git, server
 
 from common import check_server
-from constants import HDAR_URL, GITS, REGISTRY_PORT
+from constants import GITS, HDAR_URL, REGISTRY_PORT
 
 BASE_APT_PACKAGES = [
     "ca-certificates",

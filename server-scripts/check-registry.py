@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+
+"""
+This script checks if specific repositories (from the BXL-demo) are present in the Docker registry catalog.
+"""
+
 import requests
 
 

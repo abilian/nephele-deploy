@@ -7,7 +7,7 @@ pyinfra -y -vv --user root HOST deploy-root-kind-k8s.py
 
 from pyinfra import host
 from pyinfra.facts.files import File
-from pyinfra.operations import apt, git, server, snap, systemd, files
+from pyinfra.operations import apt, files, git, server, snap, systemd
 
 from common import check_server
 from constants import KARMADA_RELEASE_BRANCH

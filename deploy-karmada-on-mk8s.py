@@ -11,7 +11,7 @@ pyinfra -y -vv --user root HOST deploy-root-mk8s.py
 
 from pyinfra import host, logger
 from pyinfra.facts.server import LsbRelease
-from pyinfra.operations import apt, server, snap, systemd, files, git
+from pyinfra.operations import apt, files, git, server, snap, systemd
 
 from common import check_server
 from constants import GITS, KARMADA_RELEASE_BRANCH

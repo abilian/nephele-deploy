@@ -9,7 +9,7 @@ pyinfra -y -vvv --user root HOST deploy-root-brussels.py
 
 from pyinfra import host
 from pyinfra.facts.files import File
-from pyinfra.operations import apt, git, server, files, python
+from pyinfra.operations import apt, files, git, python, server
 
 from common import check_server
 from constants import GITS, SMO_URL
@@ -54,9 +54,6 @@ def install_smo() -> None:
         path=GITS,
     )
 
-    # # git.repo fails when the git repo does exists already, so:
-    # server.shell(name=f"empty {GITS} repository", commands=[f"rm -fr {GITS}/{SMO}"])
-
     workdir = f"{GITS}/{SMO}"
     git.repo(
         name=f"clone/update {SMO} source",
@@ -87,7 +84,9 @@ def make_brussels_demo_images() -> None:
 def check_images() -> None:
     server.shell(
         name="check images in registry",
-        commands=["curl -X GET http://localhost:5000/v2/_catalog"],
+        commands=[
+            "curl -X GET http://localhost:5000/v2/_catalog",
+        ],
     )
     files.put(
         name="put check-registry.py script",
