@@ -122,8 +122,11 @@ To get more detailed output when running a `pyinfra` script, add verbose flags (
 pyinfra -y -vvv --user root TARGET_HOST 2-deploy-karmada-on-mk8s.py
 ```
 
-
 ## References
+
+### Overview
+
+- https://documentation.nephele-hdar.netmode.ece.ntua.gr/information-models/hdag.html
 
 ### On Karmada
 
