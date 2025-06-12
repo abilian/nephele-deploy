@@ -132,9 +132,14 @@ Documentation:
 - https://karmada.io/docs/installation/
 - https://karmada.io/docs/installation/install-cli-tools#install-kubectl-karmada
 
-### Installing Karmada on Kind
+### Installing Karmada on Kind (if needed)
 
 - https://karmada.io/docs/installation/#install-karmada-in-kind-cluster
+
+### SMO install & BXL demo
+
+- https://gitlab.eclipse.org/eclipse-research-labs/nephele-project/smo/-/blob/main/README.md
+- https://gitlab.eclipse.org/eclipse-research-labs/nephele-project/smo/-/blob/main/examples/brussels-demo/README.md
 
 
 ## Detailed Script Descriptions
