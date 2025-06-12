@@ -249,7 +249,7 @@ The notes below are for other/older approaches, that weren't successful (so far)
 
 This approach for local development and testing utilizes `kind` (Kubernetes in Docker) to create a multi-cluster Kubernetes environment managed by Karmada.
 
-The script to use is `deploy-karmada-on-kind.py` instead of `2-depl
+The script to use is `deploy-karmada-on-kind.py` instead of `2-deploy-karmada-on-mk8s.py`.
 
 * **Post-Deployment Interaction:**
     *   You will have a Karmada control plane and several member Kubernetes clusters running within Docker containers on `YOUR_HOST`.
