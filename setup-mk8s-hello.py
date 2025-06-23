@@ -15,7 +15,6 @@ from pyinfra.facts.hardware import Ipv4Addrs  # Correct import for Ipv4Addrs
 from pyinfra.facts.server import LsbRelease, User
 from pyinfra.operations import apt, docker, files, git, server, snap, systemd
 
-from common import check_server
 from constants import GITS, HDAR_URL, REGISTRY_PORT
 
 BASE_APT_PACKAGES = [
@@ -72,6 +71,7 @@ def main() -> None:
     configure_mk8s()
     start_docker_registry()
     make_smo_example_hello_world()
+    update_containerd_config()
 
 
 def update_server() -> None:
@@ -306,6 +306,67 @@ def make_smo_example_hello_world():
     server.shell(
         name="Make push artifacts",
         commands=[f"cd {SMO_HELLO_CODE} && make push-artifacts"],
+    )
+
+
+def update_containerd_config():
+    cont_config = "/etc/containerd/config.toml"
+    block = (
+        '[plugins."io.containerd.grpc.v1.cri".registry]\n'
+        '  config_path = "/etc/containerd/certs.d"'
+    )
+    files.block(
+        name="Add insecure config in /etc/containerd/config.toml",
+        path=cont_config,
+        content=block.splitlines(),
+    )
+
+    files.directory(
+        name="Ensure directory /etc/containerd/certs.d",
+        path="/etc/containerd/certs.d",
+        mode="755",
+        user="root",  # Owner of the directory
+    )
+
+    files.directory(
+        name="Ensure directory /etc/containerd/certs.d/docker.io",
+        path="/etc/containerd/certs.d/docker.io",
+        mode="755",
+        user="root",  # Owner of the directory
+    )
+
+    files.directory(
+        name=f"Ensure directory /etc/containerd/certs.d/{host.get_fact(Ipv4Addrs)['eth0'][0]}:5000",
+        path=f"/etc/containerd/certs.d/{host.get_fact(Ipv4Addrs)['eth0'][0]}:5000",
+        mode="755",
+        user="root",  # Owner of the directory
+    )
+
+    files.put(
+        name="Add file /etc/containerd/certs.d/docker.io/hosts.toml",
+        src=io.StringIO(
+            (
+                'server = "https://registry-1.docker.io"\n'
+                '[host."https://{docker.mirror.url}"]\n'
+                '  capabilities = ["pull", "resolve"]\n'
+            )
+        ),
+        dest="/etc/containerd/certs.d/docker.io/hosts.toml",
+        mode="644",
+    )
+
+    files.put(
+        name=f"Add file /etc/containerd/certs.d/{host.get_fact(Ipv4Addrs)['eth0'][0]}:5000/hosts.toml",
+        src=io.StringIO(
+            (
+                'server = "https://registry-1.docker.io"\n'
+                f'[host."http://{host.get_fact(Ipv4Addrs)["eth0"][0]}:5000"]\n'
+                '  capabilities = ["pull", "resolve", "push"]\n'
+                "  skip_verify = true\n"
+            )
+        ),
+        dest=f"/etc/containerd/certs.d/{host.get_fact(Ipv4Addrs)['eth0'][0]}:5000/hosts.toml",
+        mode="644",
     )
 
 
