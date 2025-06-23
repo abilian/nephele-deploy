@@ -8,6 +8,7 @@ pyinfra -y -vvv --user root HOST setup-mk8s-hello.py
 """
 
 import io
+from textwrap import dedent
 
 from pyinfra import host
 from pyinfra.facts.files import File
@@ -73,6 +74,7 @@ def main() -> None:
     start_docker_registry()
     make_smo_example_hello_world()
     update_containerd_config()
+    deploy_on_mk8s()
 
 
 def update_server() -> None:
@@ -369,6 +371,70 @@ def update_containerd_config():
         dest=f"/etc/containerd/certs.d/{host.get_fact(Ipv4Addrs)['eth0'][0]}:5000/hosts.toml",
         mode="644",
     )
+
+
+def deploy_on_mk8s():
+    base_config = dedent(f"""\
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: deploy-hello-world
+      labels:
+        app: hello-world
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: hello-world
+      template:
+        metadata:
+          labels:
+            app: hello-world
+        spec:
+          containers:
+          - name: hello-world
+            image: {host.get_fact(Ipv4Addrs)["eth0"][0]}:32000/hello-world:latest
+            ports:
+            - containerPort: 80
+            imagePullPolicy: IfNotPresent
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: hello-world-service
+    spec:
+      selector:
+        app: hello-world
+      ports:
+        - protocol: TCP
+          port: 80
+          targetPort: 80
+      type: NodePort
+""")
+
+    files.put(
+        name="Add file /root/deploy-hello.yaml",
+        src=io.StringIO(base_config),
+        dest="/root/deploy-hello.yaml",
+        mode="644",
+    )
+
+    server.shell(
+        name="Deploy on mk8s /root/deploy-hello.yaml",
+        commands=["microk8s kubectl apply -f /root/deploy-hello.yaml"],
+    )
+
+    result = server.shell(
+        name="Show result of deployment: microk8s kubectl get pods",
+        commands=["microk8s kubectl get pods"],
+    )
+    print(result)
+
+    result2 = server.shell(
+        name="Show result of deployment: microk8s kubectl get services",
+        commands=["microk8s kubectl get services"],
+    )
+    print(result2)
 
 
 main()
