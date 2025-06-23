@@ -6,8 +6,8 @@ from hcloud import Client
 from hcloud.images import Image
 
 HETZNER_TOKEN = os.environ["HETZNER_TOKEN"]
-IMAGE = Image(name="ubuntu-22.04")
-SERVER_NAME = "nephele1"
+IMAGE = Image(name="ubuntu-24.04")
+SERVER_NAME = "nephele-sf"
 IP_ADDRESS = "157.180.84.240"
 
 client = Client(token=HETZNER_TOKEN)
