@@ -4,7 +4,7 @@ Minimal recipe to deploy
 
 Warning: connection as user root.
 
-pyinfra -y -vvv --user root HOST deploy-root-brussels.py
+pyinfra -y -vvv --user root HOST 1-build-bxl-demo.py
 """
 
 from pyinfra import host

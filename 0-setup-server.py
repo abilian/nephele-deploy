@@ -4,7 +4,7 @@ Minimal recipe to deploy
 
 Warning: connection as user root.
 
-pyinfra -y -vvv --user root HOST deploy-root-docker.py
+pyinfra -y -vvv --user root HOST 0-setup-server.py
 """
 
 from pyinfra import host

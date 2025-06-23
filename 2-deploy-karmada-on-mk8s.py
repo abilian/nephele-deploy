@@ -6,7 +6,7 @@ Install Helm from snap packages.
 
 Warning: connection as user root.
 
-pyinfra -y -vv --user root HOST deploy-root-mk8s.py
+pyinfra -y -vv --user root HOST 2-deploy-karmada-on-mk8s.py
 """
 
 from pyinfra.operations import apt, files, git, server, snap, systemd
@@ -32,6 +32,7 @@ SERVICES = [
 
 SNAP_PACKAGES = ["lxd"]
 SNAP_PACKAGES_CLASSIC = ["microk8s", "helm"]
+KA_WAIT_TIMEOUT = 900  # 15min
 
 
 def main() -> None:
@@ -147,7 +148,7 @@ def setup_karmada_cluster() -> None:
     server.shell(
         name="Wait for Karmada to be ready",
         commands=[
-            "microk8s kubectl wait --for=condition=Ready pods --all -n karmada-system --timeout=300s",
+            f"microk8s kubectl wait --for=condition=Ready pods --all -n karmada-system --timeout={KA_WAIT_TIMEOUT}s",
         ],
     )
 
@@ -185,11 +186,11 @@ def setup_cilium() -> None:
 #     )
 
 
-
-
 def install_cilium() -> None:
     CILIUM_CLI_VERSION = "v0.18.3"
-    CILIUM_BASE_URL = f"https://github.com/cilium/cilium-cli/releases/download/{CILIUM_CLI_VERSION}"
+    CILIUM_BASE_URL = (
+        f"https://github.com/cilium/cilium-cli/releases/download/{CILIUM_CLI_VERSION}"
+    )
     CLI_ARCH = "amd64"
     FILE_NAME = f"cilium-linux-{CLI_ARCH}.tar.gz"
     server.shell(
