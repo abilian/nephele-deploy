@@ -229,7 +229,7 @@ def make_hdarctl():
 
 
 def start_docker_registry() -> None:
-    daemon_json = f'{{\n"insecure-registries": [\n"{host.get_fact(Ipv4Addrs)["eth0"][0]}:5000\n]\n}}'
+    daemon_json = f'{{\n    "insecure-registries": ["{host.get_fact(Ipv4Addrs)["eth0"][0]}:5000"]\n}}\n'
 
     files.put(
         name="Ensure Docker registry in insecure mode",
@@ -240,9 +240,21 @@ def start_docker_registry() -> None:
 
     docker.container(
         name="Deploy docker registry",
-        container="registry",
         image="registry:latest",
+        container="registry",
         ports=[f"{REGISTRY_PORT}:5000"],
+        present=True,
+    )
+
+    server.shell(
+        name="ensure docker registry always restart",
+        commands=["docker update --restart=always registry"],
+    )
+
+    systemd.service(
+        name="restart docker daemon",
+        service="docker",
+        restarted=True,
     )
 
     result = server.shell(
