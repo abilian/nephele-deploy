@@ -7,6 +7,8 @@ Warning: connection as user root.
 pyinfra -y -vvv --user root HOST setup-mk8s-hello.py
 """
 
+import io
+
 from pyinfra import host
 from pyinfra.facts.files import File
 from pyinfra.facts.hardware import Ipv4Addrs  # Correct import for Ipv4Addrs
@@ -61,10 +63,10 @@ def main() -> None:
     check_server()
     update_server()
     install_packages()
-    # install_go()
-    # install_uv()
+    install_go()
+    install_uv()
     install_docker()
-    # make_hdarctl()
+    make_hdarctl()
     start_services()
     reset_mk8s()
     configure_mk8s()
@@ -227,12 +229,14 @@ def make_hdarctl():
 
 
 def start_docker_registry() -> None:
-    # server.shell(
-    #     name="start docker registry",
-    #     commands=[
-    #         f"docker run -d -p {REGISTRY_PORT}:5000 --restart=always --name registry registry:latest || true"
-    #     ],
-    # )
+    daemon_json = f'{{\n"insecure-registries": [\n"{host.get_fact(Ipv4Addrs)["eth0"][0]}:5000\n]\n}}'
+
+    files.put(
+        name="Ensure Docker registry in insecure mode",
+        src=io.StringIO(daemon_json),
+        dest="/etc/docker/daemon.json",
+        mode="644",
+    )
 
     docker.container(
         name="Deploy docker registry",
@@ -240,12 +244,6 @@ def start_docker_registry() -> None:
         image="registry:latest",
         ports=[f"{REGISTRY_PORT}:5000"],
     )
-
-    # systemd.service(
-    #     name="restart docker daemon",
-    #     service="docker",
-    #     restarted=True,
-    # )
 
     result = server.shell(
         name="check containers",
