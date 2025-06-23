@@ -15,6 +15,7 @@ from pyinfra.facts.hardware import Ipv4Addrs  # Correct import for Ipv4Addrs
 from pyinfra.facts.server import LsbRelease, User
 from pyinfra.operations import apt, docker, files, git, server, snap, systemd
 
+from common import check_server
 from constants import GITS, HDAR_URL, REGISTRY_PORT
 
 BASE_APT_PACKAGES = [
