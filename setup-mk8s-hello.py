@@ -279,9 +279,33 @@ def make_smo_example_hello_world():
         replace=f"HOST_IP := {host.get_fact(Ipv4Addrs)['eth0'][0]}",
     )
 
+    for file in (
+        "hello-world/templates/deployment.yaml",
+        "hdag/hdag.yaml",
+        "create-existing-artifact.sh",
+        "create-existing-artifact.sh",
+        "delete.sh",
+    ):
+        files.replace(
+            name=f"Replace IP address in {file}",
+            path=f"{SMO_HELLO_CODE}/{file}",
+            text=r"10\.0\.3\.53",
+            replace=f"{host.get_fact(Ipv4Addrs)['eth0'][0]}",
+        )
+
     server.shell(
-        name="build image, push image",
+        name="Build image, push image on docker registry",
         commands=[f"cd {SMO_HELLO_CODE} && make push-images"],
+    )
+
+    server.shell(
+        name="Make package artifacts",
+        commands=[f"cd {SMO_HELLO_CODE} && make package-artifacts"],
+    )
+
+    server.shell(
+        name="Make push artifacts",
+        commands=[f"cd {SMO_HELLO_CODE} && make push-artifacts"],
     )
 
 
