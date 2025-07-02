@@ -12,18 +12,16 @@ from pyinfra.operations import apt, files, git, server, snap, systemd
 from common import check_server
 from constants import KARMADA_RELEASE_BRANCH
 
-GITS = "/root/gits"
+GITS = "/root/git"
 
 APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
-# golang-go breaks
-# APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd", "golang-go"]
 SNAP_PACKAGES = ["lxd"]
 SNAP_PACKAGES_CLASSIC = ["helm"]
 
 SERVICES = [
     "containerd",
     "docker",
-    "snap.lxd.activate",
+    # "snap.lxd.activate",
 ]
 
 
