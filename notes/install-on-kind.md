@@ -30,7 +30,7 @@ hack/create-cluster.sh host $HOME/.kube/host.config
 kubectl karmada init --crds https://github.com/karmada-io/karmada/releases/download/v1.2.0/crds.tar.gz --kubeconfig=$HOME/.kube/host.config -d ~/etc/karmada --karmada-pki ~/etc/karmada/pki
 ```
 
-`-d ~/etc/karmada --karmada-pki ~/etc/karmada/pki` is needed because otherwise it wants to write on /etc/karmada and it's not possible.
+`-d ~/etc/karmada --karmada-pki ~/etc/karmada/pki` is needed because otherwise it wants to write on /etc/karmada and it's not possible, or you have to be root, and there this opens another set of problems.
 
 Then:
 
@@ -38,7 +38,7 @@ Then:
 cp ~/etc/karmada/karmada-apiserver.config ~/.kube/
 ```
 
-(Needed because the SMO wants to look in `~/.kube`).
+(Needed because the SMO wants this file to be in `~/.kube`).
 
 
 4) Check installed components:
@@ -59,4 +59,34 @@ kube-controller-manager-85c789dcfc-k89f8       1/1     Running   0          2m10
 $ kubectl get clusters --kubeconfig ~/etc/karmada/karmada-apiserver.config
 NAME        VERSION   MODE   READY   AGE
 kind-host   v1.31.2   Pull   True    118s
+```
+
+```text
+❯ export KUBECONFIG="$HOME/.kube/host.config"
+
+~
+❯ kubectl config use-context host
+Switched to context "host".
+
+~
+❯ kubectl config view
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://192.168.117.2:6443
+  name: kind-host
+contexts:
+- context:
+    cluster: kind-host
+    user: kind-host
+  name: host
+current-context: host
+kind: Config
+preferences: {}
+users:
+- name: kind-host
+  user:
+    client-certificate-data: DATA+OMITTED
+    client-key-data: DATA+OMITTED
 ```
