@@ -12,7 +12,6 @@ pyinfra -y -vv --user root HOST 2-deploy-karmada-on-mk8s.py
 from pyinfra.operations import apt, files, git, server, snap, systemd
 
 from common import check_server
-from constants import GITS, KARMADA_RELEASE_BRANCH
 
 APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
 
@@ -42,7 +41,7 @@ def main() -> None:
     show_status()
 
     configure_mk8s()
-    setup_cilium()
+    # setup_cilium()
     install_karmada_controller()
     setup_karmada_cluster()
 
@@ -152,17 +151,6 @@ def setup_karmada_cluster() -> None:
         ],
     )
 
-
-def setup_cilium() -> None:
-    server.shell(
-        name="Setup Cilium",
-        commands=[
-            "microk8s enable community",
-            "microk8s enable cilium",
-        ],
-    )
-
-
 # def install_karmada_cluster_from_sources() -> None:
 #     files.directory(
 #         name=f"create {GITS} directory",
@@ -184,28 +172,6 @@ def setup_cilium() -> None:
 #             f"cd {GITS}/karmada && hack/deploy-karmada.sh ~/.kube/config microk8s local",
 #         ],
 #     )
-
-
-def install_cilium() -> None:
-    CILIUM_CLI_VERSION = "v0.18.3"
-    CILIUM_BASE_URL = (
-        f"https://github.com/cilium/cilium-cli/releases/download/{CILIUM_CLI_VERSION}"
-    )
-    CLI_ARCH = "amd64"
-    FILE_NAME = f"cilium-linux-{CLI_ARCH}.tar.gz"
-    server.shell(
-        name="install Cilium",
-        commands=[
-            "rm -f /usr/local/bin/cilium",
-            f"curl -LO {CILIUM_BASE_URL}/{FILE_NAME}",
-            f"curl -LO {CILIUM_BASE_URL}/{FILE_NAME}.sha256sum",
-            f"sha256sum --check {FILE_NAME}.sha256sum",
-            f"tar xzvfC cilium-linux-{CLI_ARCH}.tar.gz /usr/local/bin",
-            f"rm -f {FILE_NAME}",
-            f"rm -f {FILE_NAME}.sha256sum",
-        ],
-        _get_pty=True,
-    )
 
 
 main()
