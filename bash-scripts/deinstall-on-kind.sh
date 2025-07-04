@@ -2,5 +2,5 @@
 
 set -v
 
-kubectl karmada deinit
-kind delete cluster -n karmada-cluster
+yes | kubectl karmada deinit
+yes | kind delete cluster -n karmada-cluster
