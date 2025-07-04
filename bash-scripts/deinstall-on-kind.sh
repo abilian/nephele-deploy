@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -v
 
 kubectl karmada deinit
 kind delete cluster -n karmada-cluster
