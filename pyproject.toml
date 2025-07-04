@@ -10,4 +10,5 @@ dependencies = [
     "isort>=6.0.1",
     "pyinfra>=3.3.1",
     "ruff>=0.11.10",
+    "watchfiles>=1.1.0",
 ]

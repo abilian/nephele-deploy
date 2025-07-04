@@ -19,5 +19,9 @@ format:
 	isort .
 	ruff format .
 
+sync-with-server:
+
+	@make sync-code
+	@make deploy
 
 .PHONY: deploy sync-code push-code format

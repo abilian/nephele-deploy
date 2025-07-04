@@ -32,9 +32,8 @@ def main() -> None:
 
     install_kubectl()
     install_kind()
-    # create_kind_k8s_test_cluster()
+    create_kind_k8s_test_cluster()
     # install_karmada_cluster_from_sources()
-    # install_cilium()
 
 
 def install_packages() -> None:
@@ -104,7 +103,7 @@ def create_kind_k8s_test_cluster():
             "kind create cluster",
         ],
     )
-    result = server.shell(
+    server.shell(
         name="show cluster info",
         commands=[
             "kubectl cluster-info --context kind-kind",

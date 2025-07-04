@@ -1,22 +1,28 @@
-## Install Karmada in Kind cluster
+# Note on installing the SMO on Kind (a "Kubernetes in Docker" flavor)
+
+Kind is a tool for running local Kubernetes clusters using Docker container "nodes". It was primarily designed for testing Kubernetes itself, not for production.
+
+Note that this not complete yet.
+
+## First attempt
+
+### Install kind
+
+`brew install kind` on Linux or MacOS. (Homebrew must be installed first).
+
+### Install Karmada in Kind cluster
+
+Once kind is installed, follow:
 
 Cf. <https://karmada.io/docs/installation/#install-karmada-in-kind-cluster>
 
-kind is a tool for running local Kubernetes clusters using Docker container "nodes". It was primarily designed for testing Kubernetes itself, not for production.
-
-0) Install Kind
-
-```bash
-brew install kind
-```
-
-2) Install kubectl-karmada:
+1) Install kubectl-karmada:
 
 ```
 curl -s https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh | sudo bash -s kubectl-karmada
 ```
 
-1) Create a cluster named host by hack/create-cluster.sh:
+2) Create a cluster named host by hack/create-cluster.sh:
 
 (`hack` is from the karmada repository).
 
@@ -89,4 +95,43 @@ users:
   user:
     client-certificate-data: DATA+OMITTED
     client-key-data: DATA+OMITTED
+```
+
+
+## 2nd attempt (should be automatable)
+
+```bash
+# Create a cluster, let's call it "karmada-cluster"
+kind create cluster -n karmada-cluster
+
+# Check
+kubectl cluster-info --kubeconfig ~/.kube/config
+
+# Install karmada
+curl -s https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh | sudo bash -s kubectl-karmada
+
+# Init Karmada
+kubectl karmada init --crds https://github.com/karmada-io/karmada/releases/download/v1.2.0/crds.tar.gz --kubeconfig=$HOME/.kube/config
+cp /etc/karmada/karmada-apiserver.config ~/.kube/
+
+# Check Karmada
+kubectl get pods -n karmada-system --kubeconfig ~/.kube/config
+kubectl --kubeconfig ~/.kube/karmada-apiserver.config describe cluster karmada-cluster
+```
+
+Note: if not installing as root, you would need instead:
+
+```bash
+mkdir etc
+kubectl karmada init --crds https://github.com/karmada-io/karmada/releases/download/v1.2.0/crds.tar.gz --kubeconfig=$HOME/.kube/config -d ~/etc/karmada --karmada-pki ~/etc/karmada/pki
+cp ~/etc/karmada/karmada-apiserver.config ~/.kube/
+```
+
+Then use
+
+### Cleaning up and restarting from scratch
+
+```bash
+kubectl karmada deinit
+kind delete cluster -n karmada-cluster
 ```
