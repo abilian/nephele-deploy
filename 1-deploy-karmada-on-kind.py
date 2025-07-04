@@ -1,8 +1,7 @@
 """
-Minimal recipe to deploy king kubernetes engine and tools on a ubuntu like distribution.
+Minimal recipe to deploy kind kubernetes engine and tools on a ubuntu like distribution.
 
-
-pyinfra -y -vv --user root HOST deploy-root-kind-k8s.py
+pyinfra -y -vv --user root HOST 1-deploy-root-kind-k8s.py
 """
 
 from pyinfra import host
@@ -145,8 +144,6 @@ def install_karmada_cluster_from_sources() -> None:
             f"cd {GITS}/karmada && hack/local-up-karmada.sh",
         ],
     )
-
-
 
 
 # expected result:
