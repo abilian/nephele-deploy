@@ -37,6 +37,9 @@ DOCKER_APT_PACKAGES = [
 
 def main() -> None:
     check_server()
+    delete_kind_clusters()
+    kill_docker_containers()
+    remove_mk8s()
     update_server()
     setup_server()
     install_go()
@@ -44,6 +47,45 @@ def main() -> None:
     install_docker()
     make_hdarctl()
     start_docker_registry()
+
+
+def delete_kind_clusters() -> None:
+    fact = host.get_fact(File, "/usr/local/bin/kind")
+    if fact:
+        return
+    server.shell(
+        name="stop running kind clusters",
+        commands="kind get clusters | xargs -I {} kind delete cluster --name {} || true",
+    )
+
+
+def kill_docker_containers() -> None:
+    fact = host.get_fact(File, "/usr/bin/docker")
+    if fact:
+        return
+    server.shell(
+        name="stop running containers",
+        commands=[
+            "systemctl stop docker.service"
+            "systemctl stop docker.socket"
+            "/bin/yes | docker system prune -a --volumes"
+            "systemctl start docker || true"
+        ],
+    )
+
+
+def remove_mk8s() -> None:
+    server.shell(
+        name="remove .karmada and .kube configurations",
+        commands=["rm -fr /root/.karmada", "rm -fr /root/.kube"],
+    )
+    fact = host.get_fact(File, "/snap/bin/microk8s")
+    if fact:
+        return
+    server.shell(
+        name="Stop and remove any remaining microk8s",
+        commands="snap remove --purge microk8s || true",
+    )
 
 
 def update_server() -> None:
@@ -126,6 +168,9 @@ def install_docker() -> None:
 
 
 def make_hdarctl():
+    LAST_KNOWN = 1742999495
+    GIT_LAST = 'git --no-pager log -1 --format="%at"'
+    HDACTL = "/usr/bin/hdarctl"
     git.repo(
         name="clone/update HDAR source",
         src=HDAR_URL,
@@ -134,12 +179,13 @@ def make_hdarctl():
     )
     workdir = f"{GITS}/hdar/components/hdar-ctl"
     server.shell(
-        name="build HDAR",
-        commands=[
-            f"cd {workdir} && CGO_ENABLED=0 go build -a -installsuffix cgo -o hdarctl .",
-            f"{workdir}/hdarctl -h",
-            f"cp {workdir}/hdarctl /usr/bin/hdarctl",
-        ],
+        name="build HDAR if needed",
+        commands=f"""cd {workdir} && [ -x {HDACTL} -a $({GIT_LAST}) -gt {LAST_KNOWN} ] && {{
+                CGO_ENABLED=0 go build -a -installsuffix cgo -o hdarctl .
+                f"{workdir}/hdarctl -h",
+                f"cp {workdir}/hdarctl {HDACTL}",
+            }} || true
+            """,
     )
 
 
