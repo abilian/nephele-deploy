@@ -177,7 +177,7 @@ def init_karmada_configuration():
     server.shell(
         name="initialize karmada configuration",
         commands=[
-            "karmadactl deinit",
+            "kubectl karmada deinit",
             "sleep 10",
             f"kubectl karmada --kubeconfig ~/.kube/config init --crds {CRDS}",
             "cp -f /etc/karmada/karmada-apiserver.config ~/.kube/",
