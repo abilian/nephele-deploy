@@ -10,6 +10,10 @@ deploy:
 	pyinfra -y --user root inventory.py 2-deploy-karmada-on-mk8s.py
 	pyinfra -y --user root inventory.py 3-more.py
 
+deploy-kind-jd:
+	pyinfra -y -v --user root inventory-jd.py 0-setup-server.py
+	pyinfra -y -v --user root inventory-jd.py 1-deploy-karmada-on-kind.py
+
 sync-code:
 	git pull eclipse main
 	git pull origin main
@@ -28,4 +32,4 @@ format:
 sync-with-server:
 	watchfiles "rsync -e ssh -avz bash-scripts/ root@${SERVER_IP}:/root/scripts/" bash-scripts/
 
-.PHONY: deploy sync-code push-code format
+.PHONY: deploy sync-code push-code format deploy-kind-jd
