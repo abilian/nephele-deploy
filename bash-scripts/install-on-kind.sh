@@ -13,7 +13,7 @@ curl -s https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install
 
 # Init Karmada
 kubectl karmada  --kubeconfig ~/.kube/config \
-    init --crds https://github.com/karmada-io/karmada/releases/download/v1.2.0/crds.tar.gz
+    init --crds https://github.com/karmada-io/karmada/releases/download/v1.14.0/crds.tar.gz
 cp /etc/karmada/karmada-apiserver.config ~/.kube/
 
 # More checks
