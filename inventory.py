@@ -3,8 +3,8 @@
 
 hosts = [
     # List of hosts in the inventory.
-    # Temp:
-    "157.180.84.240",
+    # Temp: (set the IP address in your /etc/hosts file)
+    "nephele",
     # "host1.example.com",
     # "host2.example.com",
     # "host3.example.com",
