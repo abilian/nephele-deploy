@@ -28,11 +28,13 @@ def main() -> None:
     check_server()
     install_packages()
     start_services()
-
     install_kubectl()
     install_kind()
-    create_kind_k8s_test_cluster()
-    # install_karmada_cluster_from_sources()
+    # create_kind_k8s_test_cluster()
+    install_karmada()
+    delete_kind_clusters()
+    create_kind_karmada_cluster()
+    init_karmada_configuration()
 
 
 def install_packages() -> None:
@@ -68,24 +70,27 @@ def install_snap_packages_classic():
         )
 
 
+def start_services() -> None:
+    for service in SERVICES:
+        systemd.service(
+            name=f"Start&enable service: {service}",
+            service=service,
+            enabled=True,
+        )
+
+
 def install_kubectl():
+    fact = host.get_fact(File, "/usr/local/bin/kubectl")
+    if fact:
+        return
     server.shell(
         name="install kubectl",
         commands=[
-            "rm -f /root/kubectl",
-            "rm -f /usr/local/bin/kubectl",
             'curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"',
             "install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
+            "rm -f /root/kubectl",
         ],
     )
-    # server.shell(
-    #     name="check kubectl availability",
-    #     # expected:
-    #     #     Client Version: v1.33.2
-    #     #     Kustomize Version: v5.6.0
-    #     #     The connection to the server localhost:8080 was refused - did you specify the right host or port?
-    #     commands=["kubectl version || true"],
-    # )
 
 
 def install_kind():
@@ -124,82 +129,67 @@ def create_kind_k8s_test_cluster():
     )
 
 
-def start_services() -> None:
-    for service in SERVICES:
-        systemd.service(
-            name=f"Start&enable service: {service}",
-            service=service,
-            enabled=True,
-        )
-
-
-def install_karmada_cluster_from_sources() -> None:
-    files.directory(
-        name=f"create {GITS} directory",
-        path=GITS,
-    )
-    git.repo(
-        name="clone/update karmada source",
-        src="https://github.com/karmada-io/karmada.git",
-        dest=f"{GITS}/karmada",
-        branch=KARMADA_RELEASE_BRANCH,
-        user="root",
-        group="root",
+def install_karmada() -> None:
+    INSTALLER_URL = "https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh"
+    # VERSION='v1.14.1'
+    files.file(
+        name="Remove old karmada CLI",
+        path="/usr/local/bin/kubectl-karmada",
+        present=False,
     )
     server.shell(
-        name="setup Karmada",
+        name="Install Karmada CLI",
         commands=[
-            f"cd {GITS}/karmada && hack/local-up-karmada.sh",
+            f"curl -s {INSTALLER_URL} | sudo bash -s kubectl-karmada",
+        ],
+        _get_pty=True,
+    )
+
+
+def delete_kind_clusters() -> None:
+    server.shell(
+        name="stop running kind clusters",
+        commands="kind get clusters | xargs -I {} kind delete cluster --name {} || true",
+    )
+
+
+def create_kind_karmada_cluster():
+    NAME = "karmada-cluster"
+    server.shell(
+        name=f"create kind cluster {NAME!r}",
+        commands=f"kind create cluster -n {NAME}",
+    )
+    server.shell(
+        name="show cluster info",
+        commands=[
+            # f"kubectl cluster-info --context kind-{NAME}",
+            "kubectl cluster-info --kubeconfig ~/.kube/config",
         ],
     )
 
 
-# expected result:
-
-# ~# kind get clusters
-# karmada-host
-# kind
-# member1
-# member2
-# member3
-
-# # export KUBECONFIG="$HOME/.kube/karmada.config"
-# # kubectl config use-context karmada-host
-#  Switched to context "karmada-host".
-#
-#
-# root@sloop:~# kubectl config view
-# apiVersion: v1
-# clusters:
-# - cluster:
-#     certificate-authority-data: DATA+OMITTED
-#     server: https://172.18.0.4:5443
-#   name: karmada-apiserver
-# - cluster:
-#     certificate-authority-data: DATA+OMITTED
-#     server: https://172.18.0.4:6443
-#   name: kind-karmada-host
-# contexts:
-# - context:
-#     cluster: karmada-apiserver
-#     user: karmada-apiserver
-#   name: karmada-apiserver
-# - context:
-#     cluster: kind-karmada-host
-#     user: kind-karmada-host
-#   name: karmada-host
-# current-context: karmada-host
-# kind: Config
-# preferences: {}
-# users:
-# - name: karmada-apiserver
-#   user:
-#     client-certificate-data: DATA+OMITTED
-#     client-key-data: DATA+OMITTED
-# - name: kind-karmada-host
-#   user:
-#     client-certificate-data: DATA+OMITTED
-#     client-key-data: DATA+OMITTED
+def init_karmada_configuration():
+    VERSION = "v1.14.1"
+    CRDS = (
+        f"https://github.com/karmada-io/karmada/releases/download/{VERSION}/crds.tar.gz"
+    )
+    LOG = "/root/log_karmada_init.txt"
+    server.shell(
+        name="initialize karmada configuration",
+        commands=[
+            "karmadactl deinit",
+            "sleep 10",
+            f"kubectl karmada --kubeconfig ~/.kube/config init --crds {CRDS}",
+            "cp -f /etc/karmada/karmada-apiserver.config ~/.kube/",
+        ],
+        _get_pty=True,
+    )
+    server.shell(
+        name="show cluster info",
+        commands=[
+            "kubectl cluster-info --kubeconfig ~/.kube/config",
+        ],
+    )
 
 
 main()
