@@ -127,7 +127,7 @@ def install_docker() -> None:
 
 def make_hdarctl():
     git.repo(
-        name=f"clone/update HDAR source",
+        name="clone/update HDAR source",
         src=HDAR_URL,
         dest=f"{GITS}/hdar",
         branch="main",
