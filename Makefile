@@ -18,6 +18,7 @@ deploy-kind-jd:
 	pyinfra -y -v --user root inventory-jd.py 4-install-metrics-server-kind.py
 	pyinfra -y -vvv --user root inventory-jd.py 6-install-some-kind-cluster.py
 	pyinfra -y -vvv --user root inventory-jd.py 7-build-bxl-demo-local-kind.py
+	pyinfra -y -vvv --user root inventory-jd.py 8-mount-bxl-demo-local-kind.py
 
 sync-code:
 	git pull eclipse main
