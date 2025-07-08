@@ -25,10 +25,10 @@ prometheus:
     type: NodePort
 defaultRules:
   create: false
-#additionalPrometheusRulesMap:
-#   - name: test-rules
-#     groups:
-#       - name: smo-alerts
+  test-rules:
+      groups:
+      - name: smo-alerts
+        rules: []
 alertmanager:
   service:
     nodePort: 30093
