@@ -70,7 +70,7 @@ def install_snap_packages_classic():
 def start_services() -> None:
     for service in SERVICES:
         systemd.service(
-            name=f"Start&enable service: {service}",
+            name=f"Start & enable service: {service}",
             service=service,
             enabled=True,
         )
@@ -81,9 +81,12 @@ def install_kubectl():
     if fact:
         return
     server.shell(
-        name="install kubectl",
+        name="Install kubectl",
         commands=[
-            'curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"',
+            (
+                "KV=$(curl -L -s https://dl.k8s.io/release/stable.txt); "
+                'curl -LO "https://dl.k8s.io/release/${KV}/bin/linux/amd64/kubectl"'
+            ),
             "install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl",
             "rm -f /root/kubectl",
         ],
@@ -91,14 +94,18 @@ def install_kubectl():
 
 
 def install_kind():
+    """Install kind.
+
+    Documentation: https://kind.sigs.k8s.io/docs/user/quick-start/
+    """
     fact = host.get_fact(File, "/usr/local/bin/kind")
     if fact:
         return
-
+    VERSION = "v0.29.0"
     server.shell(
         name="Install kind",
         commands=[
-            "go install sigs.k8s.io/kind@v0.29.0",
+            f"go install sigs.k8s.io/kind@{VERSION}",
             "cp -f /root/go/bin/kind /usr/local/bin",
         ],
     )
@@ -106,7 +113,7 @@ def install_kind():
 
 def create_kind_k8s_test_cluster():
     server.shell(
-        name="create kind k8s cluster for test",
+        name="Create kind k8s cluster for test",
         commands=[
             "kind delete cluster || true",
             "kind create cluster",
@@ -145,7 +152,7 @@ def install_karmada() -> None:
 
 def delete_kind_clusters() -> None:
     server.shell(
-        name="stop running kind clusters",
+        name="Stop running kind clusters",
         commands="kind get clusters | xargs -I {} kind delete cluster --name {} || true",
     )
 
@@ -153,18 +160,18 @@ def delete_kind_clusters() -> None:
 def create_kind_karmada_cluster():
     NAME = "karmada-cluster"
     server.shell(
-        name=f"create kind cluster {NAME!r}",
+        name=f"Create kind cluster with name {NAME!r}",
         commands=f"kind create cluster -n {NAME}",
     )
     server.shell(
-        name="show cluster info",
+        name="Show cluster info",
         commands=[
             # f"kubectl cluster-info --context kind-{NAME}",
             "kubectl cluster-info --kubeconfig ~/.kube/config",
         ],
     )
     server.shell(
-        name="wait status ready",
+        name="Wait status ready",
         commands=[
             "kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s"
         ],
@@ -177,44 +184,40 @@ def init_karmada_configuration():
         f"https://github.com/karmada-io/karmada/releases/download/{VERSION}/crds.tar.gz"
     )
     LOG = "/root/log_karmada_init.txt"
-    RETRY = 10
-    WAIT = 10
+    RETRY = 24  # 2 min
+    WAIT = 5
     server.shell(
-        name="remove old karmada configuration",
+        name="Remove old karmada configuration",
         commands="kubectl karmada deinit --purge-namespace || true",
         # "rm -fr /var/lib/karmada-etcd ",
     )
     server.shell(
-        name="install karmada configuration",
+        name="Install karmada configuration",
         commands=[
             f"""
             echo "" > {LOG}
             count=0
             until grep -q 'installed successfully' {LOG} || [ "$count" -ge "{RETRY}" ]
             do
-            sleep {WAIT}
-            kubectl karmada --kubeconfig ~/.kube/config init --wait-component-ready-timeout 60 --crds {CRDS} 2>&1 | tee {LOG}
-            count=$((count + 1))
+                sleep {WAIT}
+                kubectl karmada --kubeconfig ~/.kube/config init --wait-component-ready-timeout 60 --crds {CRDS} 2>&1 | tee {LOG}
+                count=$((count + 1))
+                echo "-- try loop number: $count"
             done
-            echo count
-            cp -f /etc/karmada/karmada-apiserver.config ~/.kube/
             """,
-            f"grep -q 'installed successfully' {LOG} ",
+            f"grep -q 'installed successfully' {LOG}",
+            "cp -f /etc/karmada/karmada-apiserver.config ~/.kube/",
         ],
         _get_pty=True,
     )
     server.shell(
-        name="check install is successful",
-        commands=f"grep 'installed successfully' {LOG}",
-    )
-    server.shell(
-        name="show cluster info",
+        name="Show cluster info",
         commands=[
             "kubectl cluster-info --kubeconfig ~/.kube/config",
         ],
     )
     server.shell(
-        name="show pods of karmada-system",
+        name="Show pods of karmada-system",
         commands=[
             "kubectl get pods -n karmada-system",
         ],

@@ -13,6 +13,7 @@ deploy:
 deploy-kind-jd:
 	pyinfra -y -v --user root inventory-jd.py 0-setup-server.py
 	pyinfra -y -v --user root inventory-jd.py 1-deploy-karmada-on-kind.py
+	pyinfra -y -v --user root inventory-jd.py 2-install-prometheus-on-kind.py
 
 sync-code:
 	git pull eclipse main
