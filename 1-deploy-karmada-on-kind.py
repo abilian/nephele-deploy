@@ -12,7 +12,7 @@ from common import check_server
 
 APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
 SNAP_PACKAGES = ["lxd"]
-SNAP_PACKAGES_CLASSIC = ["helm"]
+SNAP_PACKAGES_CLASSIC = ["helm", "kubeadm"]
 
 SERVICES = [
     "containerd",
@@ -61,7 +61,7 @@ def install_snap_packages_classic():
         # iter on list because error :
         #  "a single snap name is needed to specify channel flags"
         snap.package(
-            name=f"Install snap package {package}",
+            name=f"Install snap package {package!r}",
             packages=package,
             classic=True,
         )
