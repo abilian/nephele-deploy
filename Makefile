@@ -14,6 +14,8 @@ deploy-kind-jd:
 	pyinfra -y -v --user root inventory-jd.py 0-setup-server.py
 	pyinfra -y -v --user root inventory-jd.py 1-deploy-karmada-on-kind.py
 	pyinfra -y -v --user root inventory-jd.py 2-install-prometheus-on-kind.py
+	pyinfra -y -v --user root inventory-jd.py 3-install-prometheus-crds-on-kind.py
+	pyinfra -y -v --user root inventory-jd.py 4-install-metrics-server-kind.py
 
 sync-code:
 	git pull eclipse main
