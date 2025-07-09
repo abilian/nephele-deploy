@@ -11,9 +11,9 @@ from common import check_server, log_callback
 
 KUBECONFIG = "/root/.kube/karmada-apiserver.config"
 CLUSTER_NAME = "bxl-cluster"
-CLUSTER_CTX= f"kind-{CLUSTER_NAME}"
+CLUSTER_CTX = f"kind-{CLUSTER_NAME}"
 
-KIND_CONFIG_FILE = "kind-config.yaml
+KIND_CONFIG_FILE = "kind-config.yaml"
 
 KIND_CONFIG = f"""\
 kind: Cluster
@@ -103,6 +103,8 @@ def show_clusters() -> None:
         function=log_callback,
         result=result,
     )
+
+
 def show_nodes() -> None:
     result = server.shell(
         name="Show cluster nodes",
@@ -115,6 +117,8 @@ def show_nodes() -> None:
         function=log_callback,
         result=result,
     )
+
+
 def show_cluster_info() -> None:
     result = server.shell(
         name=f"Show cluster info {CLUSTER_CTX}",
@@ -127,7 +131,6 @@ def show_cluster_info() -> None:
         function=log_callback,
         result=result,
     )
-
 
 
 main()
