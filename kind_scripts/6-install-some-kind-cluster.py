@@ -1,5 +1,5 @@
 """
-Minimal recipe to deploy Metrics Server on kind on ubuntu server.
+Minimal recipe to deploy a kind cluster on ubuntu server.
 
 pyinfra -y -vv --user root HOST 6-install-some-kind-cluster.py
 """
@@ -10,12 +10,15 @@ from pyinfra.operations import files, python, server
 from common import check_server, log_callback
 
 KUBECONFIG = "/root/.kube/karmada-apiserver.config"
-APP_CLUSTER = "bxl-cluster"
-KIND_CONFIG_FILE = "kind-config.yaml"
+CLUSTER_NAME = "bxl-cluster"
+CLUSTER_CTX= f"kind-{CLUSTER_NAME}"
+
+KIND_CONFIG_FILE = "kind-config.yaml
+
 KIND_CONFIG = f"""\
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: {APP_CLUSTER}
+name: {CLUSTER_NAME}
 networking:
   podSubnet: "10.100.0.0/16"     # --pod-network-cidr
   serviceSubnet: "10.150.0.0/16" # --service-cidr
@@ -29,6 +32,18 @@ networking:
   #    containerPath: /files
   #- role: worker
   #- role: worker
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        listenAddress: "127.0.0.1"
+      - containerPort: 443
+        hostPort: 443
+        listenAddress: "127.0.0.1"
+  - role: worker
+  - role: worker
+  - role: worker
 """
 # spec:
 #   containers:
@@ -61,7 +76,7 @@ def delete_prior_kind_cluster() -> None:
     server.shell(
         name="Delete any prior kind cluster",
         commands=[
-            f"kind delete cluster -n {APP_CLUSTER}",
+            f"kind delete cluster -n {CLUSTER_NAME}",
         ],
         _ignore_errors=True,
     )
@@ -69,9 +84,9 @@ def delete_prior_kind_cluster() -> None:
 
 def create_kind_cluster() -> None:
     server.shell(
-        name=f"Create kindcluster {APP_CLUSTER} {KIND_CONFIG_FILE} ",
+        name=f"Create kindcluster {CLUSTER_NAME} {KIND_CONFIG_FILE} ",
         commands=[
-            f"kind create cluster --config /root/{KIND_CONFIG_FILE} -n {APP_CLUSTER}",
+            f"kind create cluster --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME}",
         ],
     )
 
@@ -88,6 +103,31 @@ def show_clusters() -> None:
         function=log_callback,
         result=result,
     )
+def show_nodes() -> None:
+    result = server.shell(
+        name="Show cluster nodes",
+        commands=[
+            "kubectl get nodes",
+        ],
+    )
+    python.call(
+        name="Show cluster nodes",
+        function=log_callback,
+        result=result,
+    )
+def show_cluster_info() -> None:
+    result = server.shell(
+        name=f"Show cluster info {CLUSTER_CTX}",
+        commands=[
+            f"kubectl cluster-info --context {CLUSTER_CTX}",
+        ],
+    )
+    python.call(
+        name=f"Show cluster info {CLUSTER_CTX}",
+        function=log_callback,
+        result=result,
+    )
+
 
 
 main()
