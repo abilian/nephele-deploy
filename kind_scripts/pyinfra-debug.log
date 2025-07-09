@@ -1,26 +1,30 @@
   File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/main.py", line 225, in cli
     _main(*args, **kwargs)
-  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/main.py", line 354, in _main
-    can_diff, state, config = _handle_commands(
-                              ^^^^^^^^^^^^^^^^^
-  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/main.py", line 667, in _handle_commands
-    state, config, operations = _prepare_deploy_operations(state, config, operations)
-                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/main.py", line 726, in _prepare_deploy_operations
-    load_deploy_file(state, filename)
-  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/util.py", line 229, in load_deploy_file
-    _parallel_load_hosts(state, lambda: exec_file(filename), filename)
-  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/util.py", line 223, in _parallel_load_hosts
-    raise result
-  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/util.py", line 203, in load_file
-    callback()
-  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/util.py", line 229, in <lambda>
-    _parallel_load_hosts(state, lambda: exec_file(filename), filename)
-                                        ^^^^^^^^^^^^^^^^^^^
-  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/util.py", line 57, in exec_file
-    code = compile(code_str, filename, "exec")
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "6-install-some-kind-cluster.py", line 87
-    name"show kind clusters",
-        ^^^^^^^^^^^^^^^^^^^^
-SyntaxError: invalid syntax
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra_cli/main.py", line 394, in _main
+    run_ops(state, serial=serial, no_wait=no_wait)
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra/api/operations.py", line 334, in run_ops
+    _run_single_op(state, op_hash)
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra/api/operations.py", line 302, in _run_single_op
+    if not greenlet.get():
+           ^^^^^^^^^^^^^^
+  File "src/gevent/greenlet.py", line 797, in gevent._gevent_cgreenlet.Greenlet.get
+  File "src/gevent/greenlet.py", line 373, in gevent._gevent_cgreenlet.Greenlet._raise_exception
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/gevent/_compat.py", line 51, in reraise
+    raise value.with_traceback(tb)
+  File "src/gevent/greenlet.py", line 900, in gevent._gevent_cgreenlet.Greenlet.run
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra/api/operations.py", line 184, in _run_host_op_with_context
+    return run_host_op(state, host, op_hash)
+    ^^^^^^^^^^^^^^^^^
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra/api/operations.py", line 53, in run_host_op
+    return _run_host_op(state, host, op_hash)
+    ^^^^^^^^^^^^^^^^^
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra/api/operations.py", line 81, in _run_host_op
+    for command in op_data.command_generator():
+      ^^^^^^^^^^^^^^^^^
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra/api/operation.py", line 283, in command_generator
+    for command in func(*args, **kwargs):
+    ^^^^^^^^^^^^^^^^^
+  File "/Users/jd/dev/abi/gits/nephele-deploy/.venv/lib/python3.12/site-packages/pyinfra/operations/files.py", line 856, in put
+    raise IOError("No such file: {0}".format(local_file))
+    ^^^^^^^^^^^^^^^^^
+OSError: No such file: /Users/jd/dev/abi/gits/nephele-deploy/kind_scripts/server-scripts/check-registry.py

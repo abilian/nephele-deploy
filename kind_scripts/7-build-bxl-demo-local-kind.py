@@ -38,6 +38,7 @@ def main() -> None:
     install_smo()
     make_brussels_demo_images()
     show_docker_images()
+    check_images()
 
 
 def setup_server() -> None:
@@ -77,7 +78,7 @@ def make_brussels_demo_images() -> None:
         commands=[
             f"cd {workdir} && perl -pi -e 's/10.0.3.53/{LOCAL_IP}/g' Makefile",
             # f"cd {workdir} && make build-images && make push-images",
-            f"cd {workdir} && make build-images",
+            f"cd {workdir} && make build-images && make push-images",
         ],
     )
 
@@ -94,22 +95,18 @@ def show_docker_images() -> None:
     )
 
 
-# def check_images() -> None:
-#     server.shell(
-#         name="check images in registry",
-#         commands=[
-#             "curl -X GET http://localhost:5000/v2/_catalog",
-#         ],
-#     )
-#     files.put(
-#         name="put check-registry.py script",
-#         src="server-scripts/check-registry.py",
-#         dest="/root/check-registry.py",
-#     )
-#     server.shell(
-#         name="run check-registry.py script",
-#         commands=["python3 /root/check-registry.py"],
-#     )
+def check_images() -> None:
+    result = server.shell(
+        name="Check images in local docker registry",
+        commands=[
+            "curl -X GET http://localhost:5000/v2/_catalog",
+        ],
+    )
+    python.call(
+        name="Show Check images in local docker registry",
+        function=log_callback,
+        result=result,
+    )
 
 
 main()
