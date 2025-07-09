@@ -9,9 +9,9 @@ pyinfra -y -vvv --user root HOST 7-build-bxl-demo-local-kind.py
 
 # from pyinfra import host
 # from pyinfra.facts.files import File
-from pyinfra.operations import apt, files, git, server
+from pyinfra.operations import apt, files, git, python, server
 
-from common import check_server
+from common import check_server, log_callback
 from constants import GITS, SMO_URL
 
 BASE_APT_PACKAGES = [
@@ -83,9 +83,14 @@ def make_brussels_demo_images() -> None:
 
 
 def show_docker_images() -> None:
-    server.shell(
+    result = server.shell(
         name="Show brussels images",
         commands=["docker images"],
+    )
+    python.call(
+        name="Show brussels images",
+        function=log_callback,
+        result=result,
     )
 
 

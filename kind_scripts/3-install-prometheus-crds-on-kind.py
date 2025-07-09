@@ -4,11 +4,9 @@ Minimal recipe to deploy prometheus CRDS on kind on ubuntu server.
 pyinfra -y -vv --user root HOST 3-install-prometheus-crds-on-kind.py
 """
 
-import io
+from pyinfra.operations import python, server
 
-from pyinfra.operations import files, server
-
-from common import check_server
+from common import check_server, log_callback
 
 NAMESPACE = "monitoring"
 # Define the Prometheus Operator version
@@ -73,11 +71,16 @@ def create_monitoring_namespace() -> None:
 
 
 def show_monitoring_pods() -> None:
-    server.shell(
+    result = server.shell(
         name=f"Show pods of {NAMESPACE!r}",
         commands=[
             f"kubectl get pods -n {NAMESPACE}",
         ],
+    )
+    python.call(
+        name=f"Show pods of {NAMESPACE!r}",
+        function=log_callback,
+        result=result,
     )
 
 

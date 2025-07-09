@@ -6,9 +6,11 @@ pyinfra -y -vv --user root HOST 1-deploy-root-kind-k8s.py
 
 from pyinfra import host
 from pyinfra.facts.files import File
-from pyinfra.operations import apt, files, server, snap, systemd
+from pyinfra.operations import apt, files, python, server, snap, systemd
 
-from common import check_server
+from common import check_server, log_callback
+
+# python.call(name=" ", function=log_callback, result=result)
 
 APT_PACKAGES = ["curl", "wget", "tar", "gnupg", "vim", "snapd"]
 SNAP_PACKAGES = ["lxd"]
@@ -119,12 +121,14 @@ def create_kind_k8s_test_cluster():
             "kind create cluster",
         ],
     )
+
     server.shell(
         name="show cluster info",
         commands=[
             "kubectl cluster-info --context kind-kind",
         ],
     )
+
     server.shell(
         name="delete test cluster",
         commands=[
@@ -163,13 +167,19 @@ def create_kind_karmada_cluster():
         name=f"Create kind cluster with name {NAME!r}",
         commands=f"kind create cluster -n {NAME}",
     )
-    server.shell(
+    result = server.shell(
         name="Show cluster info",
         commands=[
             # f"kubectl cluster-info --context kind-{NAME}",
             "kubectl cluster-info --kubeconfig ~/.kube/config",
         ],
     )
+    python.call(
+        name="Show cluster info",
+        function=log_callback,
+        result=result,
+    )
+
     server.shell(
         name="Wait status ready",
         commands=[
@@ -191,6 +201,7 @@ def init_karmada_configuration():
         commands="kubectl karmada deinit --purge-namespace || true",
         # "rm -fr /var/lib/karmada-etcd ",
     )
+
     server.shell(
         name="Install karmada configuration",
         commands=[
@@ -210,17 +221,28 @@ def init_karmada_configuration():
         ],
         _get_pty=True,
     )
-    server.shell(
+    result = server.shell(
         name="Show cluster info",
         commands=[
             "kubectl cluster-info --kubeconfig ~/.kube/config",
         ],
     )
-    server.shell(
+    python.call(
+        name="Show cluster info",
+        function=log_callback,
+        result=result,
+    )
+
+    result = server.shell(
         name="Show pods of karmada-system",
         commands=[
             "kubectl get pods -n karmada-system",
         ],
+    )
+    python.call(
+        name="Show pods of karmada-system",
+        function=log_callback,
+        result=result,
     )
 
 

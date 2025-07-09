@@ -5,9 +5,9 @@ pyinfra -y -vv --user root HOST 6-install-some-kind-cluster.py
 """
 
 import io
-from pyinfra.operations import files, server
+from pyinfra.operations import files, python, server
 
-from common import check_server
+from common import check_server, log_callback
 
 KUBECONFIG = "/root/.kube/karmada-apiserver.config"
 APP_CLUSTER = "bxl-cluster"
@@ -59,7 +59,7 @@ def put_kind_config_file() -> None:
 
 def delete_prior_kind_cluster() -> None:
     server.shell(
-        name="create kind cluster",
+        name="Delete any prior kind cluster",
         commands=[
             f"kind delete cluster -n {APP_CLUSTER}",
         ],
@@ -69,7 +69,7 @@ def delete_prior_kind_cluster() -> None:
 
 def create_kind_cluster() -> None:
     server.shell(
-        name="create kind cluster",
+        name=f"Create kindcluster {APP_CLUSTER} {KIND_CONFIG_FILE} ",
         commands=[
             f"kind create cluster --config /root/{KIND_CONFIG_FILE} -n {APP_CLUSTER}",
         ],
@@ -77,11 +77,16 @@ def create_kind_cluster() -> None:
 
 
 def show_clusters() -> None:
-    server.shell(
-        name="show kind clusters",
+    result = server.shell(
+        name="Show kind clusters",
         commands=[
             "kind get clusters",
         ],
+    )
+    python.call(
+        name="Show kind clusters",
+        function=log_callback,
+        result=result,
     )
 
 

@@ -11,14 +11,14 @@ deploy:
 	pyinfra -y --user root inventory.py 3-more.py
 
 deploy-kind-jd:
-	pyinfra -y -v --user root inventory-jd.py 0-setup-server.py
-	pyinfra -y -v --user root inventory-jd.py 1-deploy-karmada-on-kind.py
-	pyinfra -y -v --user root inventory-jd.py 2-install-prometheus-on-kind.py
-	pyinfra -y -v --user root inventory-jd.py 3-install-prometheus-crds-on-kind.py
-	pyinfra -y -v --user root inventory-jd.py 4-install-metrics-server-kind.py
-	pyinfra -y -vvv --user root inventory-jd.py 6-install-some-kind-cluster.py
-	pyinfra -y -vvv --user root inventory-jd.py 7-build-bxl-demo-local-kind.py
-	pyinfra -y -vvv --user root inventory-jd.py 8-mount-bxl-demo-local-kind.py
+	cd kind_scripts ; pyinfra -y --user root inventory-jd.py \
+	0-setup-server.py \
+	1-deploy-karmada-on-kind.py \
+	2-install-prometheus-on-kind.py \
+	3-install-prometheus-crds-on-kind.py \
+	4-install-metrics-server-kind.py \
+	6-install-some-kind-cluster.py \
+	7-build-bxl-demo-local-kind.py
 
 sync-code:
 	git pull eclipse main

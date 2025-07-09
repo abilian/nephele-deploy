@@ -6,9 +6,9 @@ pyinfra -y -vv --user root HOST 2-install-prometheus-on-kind.py
 
 import io
 
-from pyinfra.operations import files, server
+from pyinfra.operations import files, python, server
 
-from common import check_server
+from common import check_server, log_callback
 
 PROM_NAME = "monitoring"
 PROM_VALUES_FILE = "prom-values.yaml"
@@ -101,11 +101,16 @@ def install_prometheus_cluster() -> None:
             f"prometheus-community/kube-prometheus-stack --values {PROM_VALUES_FILE}"
         ),
     )
-    server.shell(
+    result = server.shell(
         name=f"Show pods of {PROM_NAME!r}",
         commands=[
             f"kubectl get pods -n {PROM_NAME}",
         ],
+    )
+    python.call(
+        name=f"Show pods of {PROM_NAME!r}",
+        function=log_callback,
+        result=result,
     )
 
 
