@@ -10,9 +10,13 @@ from pyinfra.operations import files, python, server
 
 from common import check_server, log_callback
 
-PROM_NAME = "monitoring"
+# Note: Replace 127.0.0.1 with the actual IP address of your SMO service
+SMO_URL = "http://127.0.0.1:8000/alerts"
+
+PROM_NAMESPACE = "monitoring"
+
 PROM_VALUES_FILE = "prom-values.yaml"
-PROM_VALUES_YAML = """\
+PROM_VALUES_YAML = f"""\
 prometheus:
   prometheusSpec:
     enableRemoteWriteReceiver: true
@@ -39,8 +43,8 @@ alertmanager:
     receivers:
       - name: 'webhook-receiver'
         webhook_configs:
-          # Note: Replace 127.0.0.1 with the actual IP address of your SMO service
-          - url: 'http://127.0.0.1:8000/alerts'
+        # Note: Replace 127.0.0.1 with the actual IP address of your SMO service
+        - url: '{SMO_URL}'
             send_resolved: false
     route:
       group_by: ['job']
@@ -85,9 +89,9 @@ def put_prometheus_config_file() -> None:
 
 def remove_prior_prometheus_cluster() -> None:
     server.shell(
-        name=f"Uninstall service prometheus {PROM_NAME!r}",
+        name=f"Uninstall service prometheus {PROM_NAMESPACE!r}",
         commands=[
-            f"helm uninstall prometheus -n {PROM_NAME}",
+            f"helm uninstall prometheus -n {PROM_NAMESPACE}",
         ],
         _ignore_errors=True,
     )
@@ -95,20 +99,20 @@ def remove_prior_prometheus_cluster() -> None:
 
 def install_prometheus_cluster() -> None:
     server.shell(
-        name=f"Install prometheus as {PROM_NAME!r}",
+        name=f"Install prometheus as {PROM_NAMESPACE!r}",
         commands=(
-            f"helm install prometheus --create-namespace -n {PROM_NAME} "
+            f"helm install prometheus --create-namespace -n {PROM_NAMESPACE} "
             f"prometheus-community/kube-prometheus-stack --values {PROM_VALUES_FILE}"
         ),
     )
     result = server.shell(
-        name=f"Show pods of {PROM_NAME!r}",
+        name=f"Show pods of {PROM_NAMESPACE!r}",
         commands=[
-            f"kubectl get pods -n {PROM_NAME}",
+            f"kubectl get pods -n {PROM_NAMESPACE}",
         ],
     )
     python.call(
-        name=f"Show pods of {PROM_NAME!r}",
+        name=f"Show pods of {PROM_NAMESPACE!r}",
         function=log_callback,
         result=result,
     )
