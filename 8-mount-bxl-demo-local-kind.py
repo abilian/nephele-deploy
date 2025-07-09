@@ -7,16 +7,18 @@ Warning: connection as user root.
 pyinfra -y -vvv --user root HOST 8-mount-bxl-demo-local-kind.py
 """
 
+import io
+
 # from pyinfra import host
 # from pyinfra.facts.files import File
-from pyinfra.operations import apt, files, git, server
 from pyinfra.operations import files, server
-import io
+
 from common import check_server
-from constants import GITS, SMO_URL
 
 KUBECONFIG = "/root/.kube/karmada-apiserver.config"
 LOCAL_IP = "127.0.0.1"
+APP_CLUSTER = "bxl-cluster"
+APP_CONTEXT = "kind-bxl-cluster"
 IMAGES = [
     "127.0.0.1:5000/image-detection",
     "127.0.0.1:5000/noise-reduction",
@@ -27,7 +29,7 @@ IMG1_DEPLOY = """\
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: image-detection
+  name: image-detection-deployment
   labels:
     app: image-detection
 spec:
@@ -54,6 +56,8 @@ def main() -> None:
     put_deploy1_config_file()
     kind_load_docker_image()
     apply_deploy_yaml()
+    check_deployed()
+    show_logs_container()
 
 
 def put_deploy1_config_file() -> None:
@@ -72,7 +76,7 @@ def kind_load_docker_image() -> None:
     ]
     server.shell(
         name="kind load docker-image",
-        commands=[f"kind load docker-image {IMAGES[0]} -n test-cluster"],
+        commands=[f"kind load docker-image {IMAGES[0]} -n {APP_CLUSTER}"],
     )
 
 
@@ -80,8 +84,25 @@ def apply_deploy_yaml() -> None:
     server.shell(
         name="Apply deploy img1 yaml",
         commands=[
-            f"kubectl apply -f {IMG1_DEPLOY_FILE} --kubeconfig {KUBECONFIG}",
-            f"kubectl get pods -l app=image-detection --kubeconfig {KUBECONFIG}",
+            f"kubectl apply -f {IMG1_DEPLOY_FILE} --context {APP_CONTEXT}",
+        ],
+    )
+
+
+def check_deployed() -> None:
+    server.shell(
+        name="Check deployed img1",
+        commands=[
+            f"kubectl get pods -l app=image-detection --context {APP_CONTEXT}",
+        ],
+    )
+
+
+def show_logs_container() -> None:
+    server.shell(
+        name="Show logs container img1",
+        commands=[
+            f"sleep 5 && kubectl logs -l app=image-detection --context {APP_CONTEXT}",
         ],
     )
 
