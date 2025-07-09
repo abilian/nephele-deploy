@@ -43,8 +43,8 @@ alertmanager:
     receivers:
       - name: 'webhook-receiver'
         webhook_configs:
-        # Note: Replace 127.0.0.1 with the actual IP address of your SMO service
-        - url: '{SMO_URL}'
+          # Note: Replace 127.0.0.1 with the actual IP address of your SMO service
+          - url: '{SMO_URL}'
             send_resolved: false
     route:
       group_by: ['job']
