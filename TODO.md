@@ -1,23 +1,49 @@
-# Roadmap to a Full Installation
+# TODO (Next Steps, for Stage 3)
 
-See: https://gitlab.eclipse.org/eclipse-research-labs/nephele-project/smo/-/blob/main/README.md
+To conduct additional tests and validation experiments (Stage 3 of the H3NI project), we will need to be able to deploy our demos on "real" Kubernetes instances. The current scripts are have parts specific to a self-contained `KinD` (Kubernetes in Docker) environment.
 
-To bridge the gaps, we need to create a new script, e.g., `3-deploy-smo.py` and update the existinog ones:
+-> Here's a list of action items to adapt the scripts to `microk8s`, `k3s`, or managed cloud clusters.
 
-1.  **Update `0-setup-server.py`:**
-    *   Use `files.line` or `files.file` to ensure `/etc/docker/daemon.json` contains the `insecure-registries` configuration.
-    *   Use `systemd.service` to restart the `docker` service.
-    *   Implement the `containerd` configuration steps using `files.directory` and `files.put` to create the `hosts.toml` file.
-    *   Restart the `containerd` or `microk8s` service.
+### 1. Refactor and Generalize Core Scripts `[High Priority]`
 
-2.  **Update `2-deploy-karmada-on-mk8s.py`:**
-    *   Add `server.shell` operations to run the sequence of `kubectl apply` commands for the Prometheus CRDs, targeting the Karmada kubeconfig.
-    *   Investigate the installation process for Submariner (e.g., using `subctl` or a Helm chart) and add it to this script.
+The first step is to remove hardcoded, `KinD`-specific logic from the existing scripts to make them more modular and reusable.
 
-3.  **Create a New Script `3-deploy-smo-and-demo.py`:**
-    *   **Configure SMO:** Use `files.template` to generate the `config/flask.env` file, populating the `KARMADA_KUBECONFIG` variable correctly.
-    *   **Deploy SMO:** Use `server.shell` to run `docker compose up -d` from the root of the SMO repository.
-    *   **Deploy Brussels Demo:** Use `server.shell` to execute the remaining `make` targets from the `examples/brussels-demo` directory:
-        *   `make change-ips`
-        *   `make push-artifacts`
-    *   **Trigger Deployment:** Finally, use `server.shell` to execute the `create-existing-artifact.sh` script to test the full end-to-end flow.
+- [ ] **Isolate `KinD`-Specific Commands:**
+    -   Cf. the `kind create cluster` commands in `1-deploy-karmada-on-kind.py` and `6-install-some-kind-cluster.py`.
+
+- [ ] **Abstract Kubeconfig Paths:**
+    -   Check if `/root/.kube/karmada-apiserver.config` and `~/.kube/config` will still work on other k8s distros.
+
+### 2. Add Support for `microk8s` `[High Priority]`
+
+`microk8s` is an excellent first target for a "real" Kubernetes instance. It's a single-package install and manages its own dependencies well.
+
+- [ ] **Create a `deploy-microk8s.py` Script:**
+    -   It should include `snap install microk8s --classic`.
+    -   It must enable required addons: `microk8s enable dns hostpath-storage registry`. The built-in registry is crucial as it replaces the standalone Docker registry used for `KinD`.
+    -   Add a `microk8s status --wait-ready` check to ensure the cluster is stable before proceeding.
+
+- [ ] **Adapt Karmada Installation for `microk8s`:**
+    -   Create a new script, e.g., `2-deploy-karmada-on-mk8s.py`.
+    -   This script will assume `microk8s` is already running. It will use `microk8s.kubectl` to apply the Karmada components directly onto the `microk8s` cluster.
+    -   It will need to handle generating the correct kubeconfig (`microk8s config > /root/.kube/config`).
+
+- [ ] **Update Demo Build Script for `microk8s` Registry:**
+    -   The `microk8s` registry runs at `localhost:32000`. The script `7-build-bxl-demo...` needs to be adapted or duplicated to push images to this new endpoint instead of `localhost:5000`.
+
+### 3. Address Networking and Registry Challenges `[Medium Priority]`
+
+Moving beyond a single-node `KinD` setup introduces networking complexities.
+
+- [ ] **Dynamically Configure Insecure Registries:**
+    -   The `0-setup-server.py` script hardcodes `127.0.0.1:5000` in `/etc/docker/daemon.json`.
+    -   This should be updated to use the host's actual network IP address (e.g., `eth0`), which can be discovered using `pyinfra.facts.hardware.Ipv4Addrs`. This is mandatory for multi-node clusters where workers need to pull from a registry on the control-plane node.
+
+- [ ] **Review and Document Service Exposure:**
+    -   The Prometheus script (`2-install-prometheus-on-kind.py`) uses `type: NodePort`. On `KinD`, this is accessed via `localhost`. On a real server, it will be `http://<server_ip>:<node_port>`.
+    -   Document this clearly and ensure all services that need to be accessed externally are configured with either `NodePort` or `LoadBalancer`.
+
+### 4. Update Deployment Workflows and Documentation `[Medium Priority]`
+
+- [ ] Create New `Makefile` Targets
+- [ ] Update `README.md`
