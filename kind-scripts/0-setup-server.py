@@ -39,7 +39,7 @@ DOCKER_APT_PACKAGES = [
 
 DOCKER_CONF = """\n
 {
-  "insecure-registries": ["___ip___:5000"],
+  "insecure-registries": ["___ip___:5000", "127.0.0.1:5000"],
   "exec-opts": ["native.cgroupdriver=systemd"],
   "log-driver": "json-file",
   "log-opts": {
