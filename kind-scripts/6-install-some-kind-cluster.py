@@ -96,7 +96,7 @@ def create_kind_cluster() -> None:
     server.shell(
         name=f"Create kindcluster {CLUSTER_NAME} {KIND_CONFIG_FILE} ",
         commands=[
-            f"kind create cluster -v 3 --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME} --retain",
+            f"kind create cluster --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME}",
             # debug only: f"kind create cluster -v 3 --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME} --retain",
         ],
     )
