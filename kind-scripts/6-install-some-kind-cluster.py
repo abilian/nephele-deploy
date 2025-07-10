@@ -1,10 +1,21 @@
 """
 Minimal recipe to deploy a kind cluster on ubuntu server.
 
-pyinfra -y -vv --user root HOST 6-install-some-kind-cluster.py
+debug:
+cd kind-scripts ; pyinfra -y -vvv --user root "${SERVER_NAME}" 6-install-some-kind-cluster.py
+
+strong debug:
+change to the commented line
+
+f"kind create cluster --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME}",
+# f"kind create cluster -v 3 --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME} --retain",
+
+then look in debug logs, somewhere like:
+cat /tmp/2497512524/bxl-cluster-worker/journal.log
 """
 
 import io
+
 from pyinfra.operations import files, python, server
 
 from common import check_server, log_callback
@@ -41,7 +52,6 @@ nodes:
       - containerPort: 443
         hostPort: 443
         listenAddress: "127.0.0.1"
-  - role: worker
   - role: worker
   - role: worker
 """
@@ -86,7 +96,8 @@ def create_kind_cluster() -> None:
     server.shell(
         name=f"Create kindcluster {CLUSTER_NAME} {KIND_CONFIG_FILE} ",
         commands=[
-            f"kind create cluster --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME}",
+            f"kind create cluster -v 3 --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME} --retain",
+            # debug only: f"kind create cluster -v 3 --config /root/{KIND_CONFIG_FILE} -n {CLUSTER_NAME} --retain",
         ],
     )
 

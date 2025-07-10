@@ -7,10 +7,13 @@ Warning: connection as user root.
 pyinfra -y -vvv --user root HOST 0-setup-server.py
 """
 
+import io
+
 from pyinfra import host
 from pyinfra.facts.files import File
+from pyinfra.facts.hardware import Ipv4Addrs
 from pyinfra.facts.server import LsbRelease, User
-from pyinfra.operations import apt, docker, git, server
+from pyinfra.operations import apt, docker, files, git, server, systemd
 
 from common import check_server
 from constants import GITS, HDAR_URL, REGISTRY_PORT
@@ -34,6 +37,18 @@ DOCKER_APT_PACKAGES = [
     # "docker-compose-plugin",
 ]
 
+DOCKER_CONF = """\n
+{
+  "insecure-registries": ["___ip___:5000"],
+  "exec-opts": ["native.cgroupdriver=systemd"],
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "100m"
+  },
+  "storage-driver": "overlay2"
+}
+"""
+
 
 def main() -> None:
     check_server()
@@ -42,6 +57,7 @@ def main() -> None:
     remove_mk8s()
     update_server()
     setup_server()
+    configure_server_limits()
     install_go()
     install_uv()
     install_docker()
@@ -98,6 +114,27 @@ def setup_server() -> None:
     apt.packages(
         name="Install base packages",
         packages=packages,
+    )
+
+
+def configure_server_limits() -> None:
+    server.shell(
+        name="Increase files limit",
+        commands=[
+            "sysctl fs.inotify.max_user_watches=500000",
+            "sysctl fs.inotify.max_user_instances=2048",
+            "sysctl fs.inotify.max_queued_events=32768",
+        ],
+    )
+    files.block(
+        name="Increase files limit in /etc/sysctl.conf",
+        path="/etc/sysctl.conf",
+        content="fs.inotify.max_user_watches=500000\nfs.inotify.max_user_instances=2048\nfs.inotify.max_queued_events=32768",
+    )
+    files.block(
+        name="Increase files limit in /etc/security/limits.conf",
+        path="/etc/security/limits.conf",
+        content="fs.* soft    nofile    999999\n* hard    nofile    999999\nroot     soft    nofile    999999\nroot     hard    nofile    999999",
     )
 
 
@@ -204,11 +241,20 @@ def start_docker_registry() -> None:
         ports=[f"{REGISTRY_PORT}:5000"],
     )
 
-    # systemd.service(
-    #     name="restart docker daemon",
-    #     service="docker",
-    #     restarted=True,
-    # )
+    ips = host.get_fact(Ipv4Addrs)
+    eth0 = ips["eth0"][0]
+    config = DOCKER_CONF.replace("___ip___", eth0)
+    files.put(
+        name="Put file /etc/docker/daemon.json",
+        src=io.StringIO(config),
+        dest="/etc/docker/daemon.json",
+    )
+
+    systemd.service(
+        name="restart docker daemon",
+        service="docker",
+        restarted=True,
+    )
 
     result = server.shell(
         name="check containers",
