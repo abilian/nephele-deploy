@@ -1,5 +1,5 @@
 """
-Minimal recipe to deploy /locally/
+Minimal recipe to deploy BXL demo on local docker registry
 - brussels sample
 
 Warning: connection as user root.
