@@ -210,11 +210,12 @@ def make_hdarctl():
     LAST_KNOWN = 1742999495
     GIT_LAST = 'git --no-pager log -1 --format="%at"'
     HDACTL = "/usr/bin/hdarctl"
+    # now git.repo() broken ? -> need to remove branch="main" ??
     git.repo(
         name="clone/update HDAR source",
         src=HDAR_URL,
         dest=f"{GITS}/hdar",
-        branch="main",
+        # branch="main",
     )
     workdir = f"{GITS}/hdar/components/hdar-ctl"
     server.shell(
@@ -225,6 +226,12 @@ def make_hdarctl():
                 f"cp {workdir}/hdarctl {HDACTL}",
             }} || true
             """,
+        # commands=f"""cd {workdir} && {{
+        #         CGO_ENABLED=0 go build -a -installsuffix cgo -o hdarctl .
+        #         f"{workdir}/hdarctl -h",
+        #         f"cp {workdir}/hdarctl {HDACTL}",
+        #     }} || true
+        #     """,
     )
 
 
