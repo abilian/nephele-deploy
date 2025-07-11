@@ -27,6 +27,10 @@ prometheus:
   service:
     nodePort: 30090
     type: NodePort
+grafana:
+  service:
+    nodePort: 30080
+    type: NodePort
 defaultRules:
   create: false
   test-rules:

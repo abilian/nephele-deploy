@@ -6,7 +6,7 @@ pyinfra -y -vv --user root HOST 5-install-docker-registry.py
 
 from pyinfra.operations import python, server, systemd
 
-from common import check_server, log_callback
+from common import log_callback
 
 REGISTRY_PORT = 5000
 

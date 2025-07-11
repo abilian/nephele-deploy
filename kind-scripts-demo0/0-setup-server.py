@@ -26,7 +26,9 @@ BASE_APT_PACKAGES = [
     "tar",
     "gnupg",
     "vim",
+    "build-essential",
     "python3-requests",
+    "git",
 ]
 
 DOCKER_APT_PACKAGES = [

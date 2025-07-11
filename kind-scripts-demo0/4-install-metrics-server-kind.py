@@ -8,7 +8,6 @@ from pyinfra.operations import python, server
 
 from common import check_server, log_callback
 
-
 KUBECONFIG = "/root/.kube/karmada-apiserver.config"
 
 

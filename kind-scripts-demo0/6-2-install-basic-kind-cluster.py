@@ -21,7 +21,7 @@ from pyinfra.operations import files, python, server
 from common import check_server, log_callback
 
 KUBECONFIG = "/root/.kube/karmada-apiserver.config"
-CLUSTER_NAME = "bxl-cluster"
+CLUSTER_NAME = "cluster"
 CLUSTER_CTX = f"kind-{CLUSTER_NAME}"
 
 KIND_CONFIG_FILE = "kind-config.yaml"

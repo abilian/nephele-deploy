@@ -7,6 +7,7 @@
 SERVER_NAME?=nephele
 
 ## Deployment Makefile for Karmada on kind
+
 deploy-kind:
 	cd kind-scripts ; pyinfra -y --user root inventory.py \
 		0-setup-server.py \
@@ -16,6 +17,9 @@ deploy-kind:
 		4-install-metrics-server-kind.py \
 		6-install-some-kind-cluster.py \
 		7-build-bxl-demo-local-kind.py
+
+deploy-demo0:
+	$(MAKE) -C kind-scripts-demo0
 
 ## Deployment Makefile for Karmada on microk8s (not fully working)
 deploy:
