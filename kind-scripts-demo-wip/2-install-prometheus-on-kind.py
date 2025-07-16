@@ -1,7 +1,7 @@
 """
 Minimal recipe to deploy prometheus on kind on ubuntu server.
 
-pyinfra -y -vv --user root HOST 2-install-prometheus-on-kind.py
+pyinfra -y -vv --user root ${SERVER_NAME} 2-install-prometheus-on-kind.py
 """
 
 import io

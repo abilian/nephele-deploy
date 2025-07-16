@@ -16,7 +16,7 @@ deploy-demo0:
 		4-2-start-grafana.py \
 		5-configure-smo-cli.py \
 		10-pull-h3ni-demo.py \
-		12-demo-hello-world.py
+		12-demo-bxl.py
 
 
 .PHONY: deploy-demo0

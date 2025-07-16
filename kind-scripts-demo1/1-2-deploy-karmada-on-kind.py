@@ -61,13 +61,6 @@ def create_kind_karmada_cluster():
         function=log_callback,
         result=result,
     )
-    
-    server.shell(
-        name="Wait status ready",
-        commands=[
-            "kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s"
-        ],
-    )
 
     # result = server.shell(
     #     name="Show cluster info 2",

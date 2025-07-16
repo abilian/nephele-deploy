@@ -21,6 +21,9 @@ deploy-kind:
 deploy-demo0:
 	$(MAKE) -C kind-scripts-demo0
 
+deploy-demo1:
+	$(MAKE) -C kind-scripts-demo1
+
 ## Deployment Makefile for Karmada on microk8s (not fully working)
 deploy:
 	pyinfra -y --user root inventory.py 0-setup-server.py
@@ -57,4 +60,4 @@ sync-with-server:
 	watchfiles "rsync -e ssh -avz bash-scripts/ root@${SERVER_NAME}:/root/scripts/" bash-scripts/
 
 
-.PHONY: deploy sync-code push-code format deploy-kind
+.PHONY: deploy sync-code push-code format deploy-kind deploy-demo0 deploy-demo1

@@ -25,23 +25,24 @@ def main() -> None:
 
 
 def pull_h3ni_demo() -> None:
-    files.directory(
-        name=f"Create {GITS} directory",
-        path=GITS,
-    )
+    def install_smo_mono() -> None:
+        files.directory(
+            name=f"Create {GITS} directory",
+            path=GITS,
+        )
 
-    server.shell(
-        name=f"Clone/pull {DEMO_DIR} source",
-        commands=[
-            f"[ -d {REPO} ] || git clone {DEMO_URL} {REPO}",
-            f"cd {REPO}; git pull",
-        ],
-    )
+        server.shell(
+            name=f"Clone/pull {DEMO_DIR} source",
+            commands=[
+                f"[ [ -d {REPO} ] || git clone {DEMO_URL} {REPO}",
+                f"cd  {REPO}; git pull",
+            ],
+        )
 
-    server.shell(
-        name="Prepare {DEMO_DIR}",
-        commands=[f"cd {REPO}; uv venv -p3.12; . .venv/bin/activate; uv sync"],
-    )
+        server.shell(
+            name="Prepare {DEMO_DIR}",
+            commands=[f"cd {REPO}; uv venv -p3.12; . .ven/bin/activate; uv sync"],
+        )
 
 
 main()
