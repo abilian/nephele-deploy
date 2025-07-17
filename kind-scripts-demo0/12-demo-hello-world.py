@@ -20,11 +20,12 @@ def main() -> None:
 
 
 def install_hello_world():
-    server.shell(
-        name="Remove prior hello-world-graph",
-        commands=[(f"yes | {SMO_CLI} graph remove hello-world-graph || true")],
-        _get_pty=True,
-    )
+    for name in ("hello-world-graph", "image-detection-graph"):
+        server.shell(
+            name="Remove prior known graphes",
+            commands=[(f"yes | {SMO_CLI} graph remove {name} || true")],
+            _get_pty=True,
+        )
     server.shell(
         name="Deploy using smo-cli",
         commands=[

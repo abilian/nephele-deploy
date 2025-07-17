@@ -6,7 +6,7 @@
 
 SERVER_NAME?=nephele
 
-deploy-demo0:
+deploy-demo1:
 	pyinfra -y --user root inventory.py \
 		0-setup-server.py \
 		0-2-install-smo-cli-monorepo.py \
@@ -19,4 +19,4 @@ deploy-demo0:
 		13-demo-bxl.py
 
 
-.PHONY: deploy-demo0
+.PHONY: deploy-demo1
