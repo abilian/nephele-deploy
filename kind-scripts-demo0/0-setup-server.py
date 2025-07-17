@@ -13,12 +13,10 @@ from pyinfra import host
 from pyinfra.facts.files import File
 from pyinfra.facts.hardware import Ipv4Addrs
 from pyinfra.facts.server import LsbRelease, User
-from pyinfra.operations import apt, docker, files, git, server, systemd
+from pyinfra.operations import apt, docker, files, python, server, systemd
 from pyinfra.operations import server
-from pyinfra.facts.files import Directory
-from pyinfra.facts.server import Command
 
-from common import check_server
+from common import check_server, log_callback
 from constants import GITS, HDAR_URL, REGISTRY_PORT
 
 BASE_APT_PACKAGES = [
@@ -235,10 +233,11 @@ def make_hdarctl():
         #         f"cp {workdir}/hdarctl {HDACTL}",
         #     }} || true
         #     """,
-        commands=f"""[ ! -x {HDACTL} ] && cd {workdir} && {{
+        commands=f"""[ ! -x {HDACTL} ] && {{
+                cd {workdir}
                 CGO_ENABLED=0 go build -a -installsuffix cgo -o hdarctl .
-                f"{workdir}/hdarctl -h",
-                f"cp {workdir}/hdarctl {HDACTL}",
+                ./hdarctl -h
+                cp hdarctl {HDACTL}
             }} || true
             """,
     )
@@ -251,13 +250,6 @@ def start_docker_registry() -> None:
     #         f"docker run -d -p {REGISTRY_PORT}:5000 --restart=always --name registry registry:latest || true"
     #     ],
     # )
-
-    docker.container(
-        name="Deploy docker registry",
-        container="registry",
-        image="registry:latest",
-        ports=[f"{REGISTRY_PORT}:5000"],
-    )
 
     ips = host.get_fact(Ipv4Addrs)
     eth0 = ips["eth0"][0]
@@ -274,11 +266,23 @@ def start_docker_registry() -> None:
         restarted=True,
     )
 
+    docker.container(
+        name="Deploy docker registry",
+        container="registry",
+        image="registry:latest",
+        ports=[f"{REGISTRY_PORT}:5000"],
+        force=True,
+    )
+
     result = server.shell(
         name="check containers",
         commands=["docker container ls -a"],
     )
-    print(result)
+    python.call(
+        name="Show containers list",
+        function=log_callback,
+        result=result,
+    )
 
 
 main()

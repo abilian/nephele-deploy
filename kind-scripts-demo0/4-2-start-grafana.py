@@ -34,7 +34,7 @@ def start_grafana() -> None:
                 "--restart=always "
                 "--name=grafana "
                 "-e GF_SECURITY_ADMIN_USER=admin "
-                "-e GF_SECURITY_ADMIN_PASSWORD=admin "
+                "-e GF_SECURITY_ADMIN_PASSWORD=prom-operator "
                 "grafana/grafana-enterprise"
             )
         ],

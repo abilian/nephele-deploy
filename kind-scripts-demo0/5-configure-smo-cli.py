@@ -20,12 +20,13 @@ SMO_CONF = """\
 grafana:
   host: http://localhost:3000
   username: admin
-  password: admin
+  password: prom-operator
 prometheus_host: http://localhost:9090
 helm:
   insecure_registry: true
 scaling:
   interval_seconds: 30
+karmada_kubeconfig: /root/.kube/config
 """
 
 
@@ -38,7 +39,7 @@ def init_smo_mono() -> None:
     files.put(
         name="Force smo config",
         src=io.StringIO(SMO_CONF),
-        dest="/root/.smo/config",
+        dest="/root/.smo/config.yaml",
     )
     result = server.shell(
         name="Initialize smo-cli",
