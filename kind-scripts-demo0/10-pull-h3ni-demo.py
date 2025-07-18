@@ -34,7 +34,7 @@ def pull_h3ni_demo() -> None:
         name=f"Clone/pull {DEMO_DIR} source",
         commands=[
             f"[ -d {REPO} ] || git clone {DEMO_URL} {REPO}",
-            f"cd {REPO}; git pull",
+            f"cd {REPO}; git clean -fxd; git pull",
         ],
     )
 
