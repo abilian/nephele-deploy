@@ -30,6 +30,7 @@ SMO_CLI = "/usr/local/bin/smo-cli"
 def main() -> None:
     check_server()
     setup_server()
+    remove_prior_smo_cli()
     install_smo_mono()
     show_smo_mono()
 
@@ -39,6 +40,15 @@ def setup_server() -> None:
         name="Install base packages",
         packages=BASE_APT_PACKAGES,
         update=True,
+    )
+
+
+def remove_prior_smo_cli() -> None:
+    files.file(
+        name=f"Remove {SMO_CLI} if exists",
+        path=SMO_CLI,
+        present=False,
+        force=True,
     )
 
 
