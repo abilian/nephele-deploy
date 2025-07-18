@@ -1,7 +1,7 @@
 """
 Minimal recipe to deploy kind kubernetes engine and tools on a ubuntu like distribution.
 
-pyinfra -y -vv --user root HOST 1-deploy-root-kind-k8s.py
+pyinfra -y -vv --user root ${SERVER_NAME} 1-clean-karmada-on-kind.py
 """
 
 from pyinfra import host

@@ -8,7 +8,7 @@ Warning:
 pyinfra -y -vvv --user root ${SERVER_NAME} 10-pull-h3ni-demo.py
 """
 
-from pyinfra.operations import files, git, server
+from pyinfra.operations import files, server
 
 from constants import GITS
 
@@ -39,7 +39,7 @@ def pull_h3ni_demo() -> None:
     )
 
     server.shell(
-        name="Prepare {DEMO_DIR}",
+        name=f"uv sync {DEMO_DIR}",
         commands=[f"cd {REPO}; uv venv -p3.12; . .venv/bin/activate; uv sync"],
     )
 
