@@ -24,6 +24,12 @@ deploy-demo0:
 deploy-demo1:
 	$(MAKE) -C kind-scripts-demo1
 
+deploy-demo2:
+	$(MAKE) -C kind-scripts-demo2
+
+deploy-demo3:
+	$(MAKE) -C kind-scripts-demo3
+
 ## Deployment Makefile for Karmada on microk8s (not fully working)
 deploy:
 	pyinfra -y --user root inventory.py 0-setup-server.py
