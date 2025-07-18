@@ -9,7 +9,7 @@ pyinfra -y -vvv --user root ${SERVER_NAME} 14-demo-gpu.py
 from pathlib import Path
 
 from pyinfra.operations import files, python, server
-
+import io
 from common import log_callback
 from constants import GITS
 
@@ -24,7 +24,7 @@ PROJECT = "demo2"
 SMO_URL = f"http://{HOST_ADDR}:8000"
 REGISTRY_URL = f"http://{HOST_ADDR}:5000"
 GRAPH_NAME = "gpu-offloading-graph"
-
+HDAG_YAML = f"{DEMO_DIR}/hdag.yaml"
 # --- Path Definitions ---
 
 BUILD_DIR = f"{DEMO_DIR}/build"
@@ -62,6 +62,68 @@ APP_ARTIFACTS = {
 }
 ALL_ARTIFACTS = {**APP_ARTIFACTS, **HDAG_ARTIFACT}
 
+HDAG_YAML_CONTENT = """\
+hdaGraph:
+  imVersion: 0.4.0
+  id: gpu-offloading-graph
+  version: "1.0.0"
+  designer: Abilian
+  description: A demo application to showcase GPU-based placement.
+  # Global intents for the graph, SMO might use these for placement/scaling policies
+  hdaGraphIntent:
+    # Example: if we want SMO to generally aim for high availability through scaling
+    highAvailability:
+      enabled: true
+      minReplicasOverall: 1 # SMO could ensure at least this many total, H3NI scaler refines
+      maxReplicasOverall: 10 # Global cap
+    # Other intents like energyEfficiency could be false for this demo
+    # to focus purely on load-based scaling.
+    energyEfficiency:
+      enabled: false
+  services:
+    - id: web-frontend
+      deployment:
+        trigger:
+          auto:
+            dependencies: []
+        intent:
+          network:
+            # This service needs to connect to the ml-inference service
+            connectionPoints: ["ml-inference"]
+          compute:
+            cpu: "small"
+            ram: "small"
+            gpu:
+               # Explicitly does NOT need a GPU
+               enabled: False
+      artifact:
+        ociImage: "oci://127.0.0.1:5000/test/web-frontend"
+        ociConfig: { type: App, implementer: HELM }
+        ociRun: { name: HELM, version: v3 }
+        valuesOverwrite: {}
+
+    - id: ml-inference
+      deployment:
+        trigger:
+          auto:
+            dependencies: []
+        intent:
+          network:
+            connectionPoints: []
+          compute:
+            cpu: "medium"
+            ram: "medium"
+            gpu:
+               # Explicitly REQUIRES a GPU
+               enabled: True
+      artifact:
+        ociImage: "oci://127.0.0.1:5000/test/ml-inference"
+        ociConfig: { type: App, implementer: HELM }
+        ociRun: { name: HELM, version: v3 }
+        valuesOverwrite: {}
+
+"""
+
 
 def main() -> None:
     pip_install()
@@ -71,6 +133,7 @@ def main() -> None:
     build_images()
     push_images()
     mk_change_ips()
+    tune_hdag_yaml()
     package_artifacts()
     push_artifacts()
 
@@ -166,6 +229,15 @@ def mk_change_ips():
         name=f"Exec {script} (result)",
         function=log_callback,
         result=result,
+    )
+
+
+def tune_hdag_yaml():
+    files.put(
+        name=f"Modify content of {HDAG_YAML}",
+        src=io.StringIO(HDAG_YAML_CONTENT),
+        dest=HDAG_YAML,
+        force=True,
     )
 
 
