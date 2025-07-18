@@ -57,6 +57,7 @@ def install_smo_mono() -> None:
                     cd {REPO}
                     git fetch
                     git checkout scaling
+                    git pull
                 }}
             """,
         ],
