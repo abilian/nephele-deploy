@@ -20,6 +20,7 @@ SMO_MONO_URL = (
     "nephele-project/opencall-2/h3ni/smo-monorepo.git"
 )
 SMO_CLI = "/usr/local/bin/smo-cli"
+BRANCH = "main"
 
 
 def main() -> None:
@@ -47,13 +48,12 @@ def install_smo_mono() -> None:
     server.shell(
         name=f"Clone/pull {SMO_MONO} source",
         commands=[
-            f"[ -x {SMO_CLI} ] || [ -d {REPO} ] || git clone {SMO_MONO_URL} {REPO}",
-            f"""[ -x {SMO_CLI} ] || {{
-                    cd {REPO}
-                    git fetch
-                    git checkout scaling
-                    git pull
-                }}
+            f"[ -d {REPO} ] || git clone {SMO_MONO_URL} {REPO}",
+            f"""
+                cd {REPO}
+                git fetch
+                git checkout {BRANCH}
+                git pull
             """,
         ],
     )
@@ -61,13 +61,12 @@ def install_smo_mono() -> None:
     server.shell(
         name="Build smo from smo-monorepo",
         commands=[
-            f"""[ -x {SMO_CLI} ] || {{
-                    cd {REPO}
-                    uv venv -p3.12
-                    . .venv/bin/activate
-                    uv sync
-                    cp .venv/bin/smo-cli /usr/local/bin
-                }}
+            f"""
+                cd {REPO}
+                uv venv -p3.12
+                . .venv/bin/activate
+                uv sync
+                cp .venv/bin/smo-cli /usr/local/bin
             """
         ],
     )
