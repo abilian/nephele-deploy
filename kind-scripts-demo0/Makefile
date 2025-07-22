@@ -15,6 +15,8 @@ deploy-demo0:
 		4-install-kubectl-karmada.py \
 		5-deploy-karmada.py \
 		6-start-grafana.py \
+		6-install-prometheus.py \
+		7-install-metrics-server.py \
 		7-configure-smo-cli.py \
 		10-pull-h3ni-demo.py \
 		12-demo-hello-world.py

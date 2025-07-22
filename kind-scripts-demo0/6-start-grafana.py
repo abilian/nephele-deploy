@@ -3,8 +3,6 @@ Minimal recipe to start grafana.
 
 assuming 0-setup-server.py has already been applied for base packages.
 
-NOTA: will be part of Promethus stack later
-
 pyinfra -y -vv --user root ${SERVER_NAME} 6-start-grafana.py
 """
 
@@ -60,7 +58,7 @@ def check_grafana_admin() -> None:
             #'| grep -q "isGrafanaAdmin" '
         ],
         _get_pty=True,
-        # _ignore_errors=True,
+        _ignore_errors=True,
         _shell_executable="/bin/bash",
     )
 
