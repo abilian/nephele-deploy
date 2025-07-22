@@ -121,6 +121,17 @@ def check_nginx_status():
     )
 
     result = server.shell(
+        name="Find all kubernetes pods",
+        commands=["kubectl get pods -A"],
+        _get_pty=True,
+    )
+    python.call(
+        name="Show all kubernetes pods",
+        function=log_callback,
+        result=result,
+    )
+
+    result = server.shell(
         name="Find docker IP for nginx",
         commands=[
             """
