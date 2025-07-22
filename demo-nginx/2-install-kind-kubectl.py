@@ -10,8 +10,6 @@ from pyinfra import host
 from pyinfra.facts.files import File
 from pyinfra.operations import apt, files, python, server, snap, systemd
 
-from common import log_callback
-
 # python.call(name=" ", function=log_callback, result=result)
 
 APT_PACKAGES = ["snapd"]
@@ -75,9 +73,6 @@ def start_services() -> None:
 
 
 def install_kubectl():
-    fact = host.get_fact(File, "/usr/local/bin/kubectl")
-    if fact:
-        return
     server.shell(
         name="Install kubectl",
         commands=[
