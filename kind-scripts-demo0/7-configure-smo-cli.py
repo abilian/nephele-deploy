@@ -28,7 +28,7 @@ helm:
   insecure_registry: true
 scaling:
   interval_seconds: 30
-karmada_kubeconfig: /root/.kube/config
+karmada_kubeconfig: /root/.kube/karmada-apiserver.config
 """
 
 
