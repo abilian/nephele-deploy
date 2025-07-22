@@ -30,6 +30,7 @@ BASE_APT_PACKAGES = [
     "build-essential",
     "python3-requests",
     "git",
+    "tree",
 ]
 
 DOCKER_APT_PACKAGES = [
@@ -70,36 +71,45 @@ def main() -> None:
 
 def delete_kind_clusters() -> None:
     fact = host.get_fact(File, "/usr/local/bin/kind")
-    if fact:
+    if not fact:
         return
     server.shell(
-        name="stop running kind clusters",
+        name="Stop running kind clusters",
         commands="kind get clusters | xargs -I {} kind delete cluster --name {} || true",
+    )
+    server.shell(
+        name="Remove kind",
+        commands=["rm -f /root/go/bin/kind", "rm -f /usr/local/bin/kind"],
     )
 
 
 def kill_docker_containers() -> None:
     fact = host.get_fact(File, "/usr/bin/docker")
-    if fact:
+    if not fact:
         return
     server.shell(
-        name="stop running containers",
+        name="Stop running and removes all containers",
         commands=[
-            "systemctl stop docker.service"
-            "systemctl stop docker.socket"
-            "/bin/yes | docker system prune -a --volumes"
-            "systemctl start docker || true"
+            "systemctl start docker || true",
+            "/bin/yes | docker system prune -a --volumes|| true",
+            "systemctl stop docker.service|| true",
+            "systemctl stop docker.socket|| true",
+            "rm -fr /var/lib/docker",
         ],
     )
 
 
 def remove_mk8s() -> None:
     server.shell(
-        name="remove .karmada and .kube configurations",
-        commands=["rm -fr /root/.karmada", "rm -fr /root/.kube"],
+        name="Remove .karmada and .kube configurations",
+        commands=[
+            "rm -fr /root/.karmada",
+            "rm -fr /root/.kube",
+            "rm -f /usr/local/bin/kubectl",
+        ],
     )
     fact = host.get_fact(File, "/snap/bin/microk8s")
-    if fact:
+    if not fact:
         return
     server.shell(
         name="Stop and remove any remaining microk8s",
@@ -161,17 +171,18 @@ def install_go() -> None:
 #
 def install_uv() -> None:
     fact = host.get_fact(File, "/usr/bin/uv")
-    if not fact:
-        server.shell(
-            name="install uv",
-            commands=["curl -LsSf https://astral.sh/uv/install.sh | sh"],
-        )
-        server.shell(
-            name="copy uv to /usr/bin",
-            commands=[
-                "cp /root/.local/bin/uv /usr/bin/uv",
-            ],
-        )
+    if fact:
+        return
+    server.shell(
+        name="install uv",
+        commands=["curl -LsSf https://astral.sh/uv/install.sh | sh"],
+    )
+    server.shell(
+        name="copy uv to /usr/bin",
+        commands=[
+            "cp /root/.local/bin/uv /usr/bin/uv",
+        ],
+    )
 
 
 #
@@ -194,14 +205,14 @@ def install_docker() -> None:
 
     packages = DOCKER_APT_PACKAGES
     apt.packages(
-        name="Install Docker packages",
+        name=f"Install packages {packages}",
         packages=packages,
         update=True,
     )
 
     user = host.get_fact(User)
     server.user(
-        name=f"give docker group to {user!r}",
+        name=f"Give docker group to {user!r}",
         user=user,
         groups=["docker"],
     )
@@ -219,8 +230,8 @@ def make_hdarctl():
     server.shell(
         name="Clone/pull HDAR repository if needed",
         commands=[
-            f"[ -x {HDACTL} ] || [ -d {REPO} ] || git clone {HDAR_URL} {REPO}",
-            f"cd  {REPO} && git pull",
+            f"[ -d {REPO} ] || git clone {HDAR_URL} {REPO}",
+            f"cd {REPO} && git pull",
         ],
     )
 
@@ -261,7 +272,7 @@ def start_docker_registry() -> None:
     )
 
     systemd.service(
-        name="restart docker daemon",
+        name="Restart docker daemon",
         service="docker",
         restarted=True,
     )
@@ -275,7 +286,7 @@ def start_docker_registry() -> None:
     )
 
     result = server.shell(
-        name="check containers",
+        name="Check containers",
         commands=["docker container ls -a"],
     )
     python.call(

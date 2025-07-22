@@ -3,7 +3,9 @@ Minimal recipe to install smo-cli monorepo
 
 Warning: connection as user root.
 
-pyinfra -y -vvv --user root ${SERVER_NAME} 0-2-install-smo-cli-monorepo.py
+Assuming 0-setup-server.py has already been applied for base packages.
+
+pyinfra -y -vvv --user root ${SERVER_NAME} 7-configure-smo-cli.py
 """
 
 import io
@@ -54,7 +56,7 @@ def init_smo_mono() -> None:
 
 def show_smo_graph() -> None:
     result = server.shell(
-        name=f"Show {SMO_CLI} graph list",
+        name=f"Get {SMO_CLI} graph list",
         commands=[f"{SMO_CLI} graph list"],
     )
     python.call(

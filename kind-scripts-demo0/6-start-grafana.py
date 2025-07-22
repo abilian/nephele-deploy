@@ -1,7 +1,11 @@
 """
 Minimal recipe to start grafana.
 
-pyinfra -y -vv --user root ${SERVER_NAME} 4-2-start-grafana.py
+assuming 0-setup-server.py has already been applied for base packages.
+
+NOTA: will be part of Promethus stack later
+
+pyinfra -y -vv --user root ${SERVER_NAME} 6-start-grafana.py
 """
 
 from pyinfra.operations import server
@@ -10,7 +14,6 @@ from common import check_server
 
 
 def main() -> None:
-    check_server()
     start_grafana()
     check_grafana_admin()
 
@@ -57,7 +60,7 @@ def check_grafana_admin() -> None:
             #'| grep -q "isGrafanaAdmin" '
         ],
         _get_pty=True,
-        _ignore_errors=True,
+        # _ignore_errors=True,
         _shell_executable="/bin/bash",
     )
 

@@ -40,7 +40,14 @@ def pull_h3ni_demo() -> None:
 
     server.shell(
         name=f"uv sync {DEMO_DIR}",
-        commands=[f"cd {REPO}; uv venv -p3.12; . .venv/bin/activate; uv sync"],
+        commands=[
+            f"""
+            cd {REPO}
+            uv venv -p3.12
+            . .venv/bin/activate
+            uv sync
+            """
+        ],
     )
 
 

@@ -9,12 +9,13 @@ SERVER_NAME?=nephele
 deploy-demo0:
 	pyinfra -y --user root inventory.py \
 		0-setup-server.py \
-		0-2-install-smo-cli-monorepo.py \
-		1-clean-karmada-on-kind.py \
-		1-2-deploy-karmada-on-kind.py \
-		4-install-metrics-server-kind.py \
-		4-2-start-grafana.py \
-		5-configure-smo-cli.py \
+		1-install-smo-cli-monorepo.py \
+		2-install-kind-kubectl.py \
+		3-create-kind-cluster.py \
+		4-install-kubectl-karmada.py \
+		5-deploy-karmada.py \
+		6-start-grafana.py \
+		7-configure-smo-cli.py \
 		10-pull-h3ni-demo.py \
 		12-demo-hello-world.py
 

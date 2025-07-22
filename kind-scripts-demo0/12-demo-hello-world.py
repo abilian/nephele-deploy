@@ -30,14 +30,18 @@ def install_hello_world():
         name="Deploy using smo-cli",
         commands=[
             (
-                f"cd {TOP_DIR} && . .venv/bin/activate && "
-                "cd 0-hello-world-demo && inv all"
+                f"""
+                cd {TOP_DIR}
+                . .venv/bin/activate
+                cd 0-hello-world-demo
+                inv all
+                """
             )
         ],
         _get_pty=True,
     )
     result = server.shell(
-        name="Show graph list",
+        name="Get graph list",
         commands=[f"{SMO_CLI} graph list"],
         _get_pty=True,
     )
