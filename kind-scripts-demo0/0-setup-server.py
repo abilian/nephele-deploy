@@ -38,7 +38,7 @@ DOCKER_APT_PACKAGES = [
     "docker-ce-cli",
     "containerd.io",
     # "docker-buildx-plugin",
-    # "docker-compose-plugin",
+    "docker-compose-plugin",
 ]
 
 DOCKER_CONF = """\n

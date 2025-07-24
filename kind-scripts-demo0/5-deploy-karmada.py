@@ -24,7 +24,11 @@ from constants import GITS
 # KUBE_CONF_DIR = "/root/.kube"
 # KUBE_CONF_PATH = f"{KUBE_CONF_DIR}/config"
 # HOST_CONF_PATH = f"{KUBE_CONF_DIR}/{HOST_CONFIG_FILENAME}"
-KUBECONFIG = "/root/.kube/config"
+HOST_CONFIG_FILENAME = "host.kubeconfig"
+KUBE_CONF_DIR = "/root/.kube"
+HOST_CONF_PATH = f"{KUBE_CONF_DIR}/{HOST_CONFIG_FILENAME}"
+KUBECONFIG = HOST_CONF_PATH
+HOST_CONTEXT = "kind-host"
 
 
 def main() -> None:
@@ -54,7 +58,9 @@ def deploy_karmada() -> None:
             until grep -q 'installed successfully' {LOG} || [ "$count" -ge "{RETRY}" ]
             do
                 sleep {WAIT}
-                kubectl karmada  init --kubeconfig=/root/.kube/config \
+                kubectl karmada  init \
+                --kubeconfig={KUBECONFIG} \
+                --context={HOST_CONTEXT} \
                 --wait-component-ready-timeout 60 \
                 --crds {CRDS} 2>&1 | tee -a {LOG}
                 count=$((count + 1))
@@ -62,56 +68,66 @@ def deploy_karmada() -> None:
             done
             """,
             f"grep -q 'installed successfully' {LOG}",
-            "cp -f /etc/karmada/karmada-apiserver.config ~/.kube/",
+            "cp -f /etc/karmada/karmada-apiserver.config /root/.kube/",
         ],
         _get_pty=True,
     )
+
+    # server.shell(
+    #     name="Create a token",
+    #     commands=[
+    #         (
+    #             "kubectl karmada token create --ttl 0 --print-register-command "
+    #             "--kubeconfig /etc/karmada/karmada-apiserver.config"
+    #         ),
+    #         "cp -f /etc/karmada/karmada-apiserver.config /root/.kube/",
+    #     ],
+    #     _get_pty=True,
+    # )
+    #
     result = server.shell(
-        name="Get members of Karmada.",
+        name="Get Karmada Control Plane",
         commands=[
-            "kubectl karmada --kubeconfig=/etc/karmada/karmada-apiserver.config get clusters",
+            (
+                f"kubectl --kubeconfig={KUBECONFIG} "
+                f"--context={HOST_CONTEXT} "
+                " get pods -n karmada-system"
+            ),
         ],
     )
     python.call(
-        name="Show members of Karmada.",
+        name="Show Karmada Control Plane",
         function=log_callback,
         result=result,
     )
 
+    result = server.shell(
+        name="Get Karmada all pods",
+        commands=[
+            f"kubectl --kubeconfig={KUBECONFIG} get pods --all-namespaces",
+        ],
+    )
+    python.call(
+        name="Show Karmada all pods",
+        function=log_callback,
+        result=result,
+    )
 
-# def install_karmada2():
-#     REPO = f"{GITS}/karmada"
-#     KARMADA_URL = "https://github.com/karmada-io/karmada.git"
-#     files.file(
-#         name="Remove old karmada CLI",
-#         path="/usr/local/bin/kubectl-karmada",
-#         present=False,
-#     )
-#     server.shell(
-#         name=f"Clone/pull {REPO}",
-#         commands=[
-#             f"[ -d {REPO} ] || git clone --depth 1 {KARMADA_URL} {REPO}",
-#             f"cd {REPO}; git pull",
-#         ],
-#     )
-#     server.shell(
-#         name=f"Clone/pull {REPO}",
-#         commands=[
-#             f"[ -d {REPO} ] || git clone --depth 1 {KARMADA_URL} {REPO}",
-#             f"cd {REPO}; git pull",
-#         ],
-#     )
-#     server.shell(
-#         name="Install Karmada",
-#         commands=[
-#             f"""export KUBECONFIG={KUBECONFIG}
-#                 cd {REPO}
-#                 hack/local-up-karmada.sh
-#                 cp -f karmada.config {KUBE_CONF_DIR}
-#                 cp -f members.config {KUBE_CONF_DIR}
-#             """
-#         ],
-#     )
+    # result = server.shell(
+    #     name="Get members of Karmada.",
+    #     commands=[
+    #         (
+    #             "kubectl karmada "
+    #             "--kubeconfig=/root/.kube/karmada-apiserver.config "
+    #             "get clusters"
+    #         ),
+    #     ],
+    # )
+    # python.call(
+    #     name="Show members of Karmada.",
+    #     function=log_callback,
+    #     result=result,
+    # )
 
 
 main()

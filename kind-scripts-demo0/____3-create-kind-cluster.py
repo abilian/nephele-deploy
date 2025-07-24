@@ -31,7 +31,7 @@ from common import log_callback
 #   apiServerAddress: "0.0.0.0"
 # """
 
-HOST_CONFIG_FILENAME = "host.config"
+HOST_CONFIG_FILENAME = "host.kubeconfig"
 KUBE_CONF_DIR = "/root/.kube"
 KUBE_CONF_PATH = f"{KUBE_CONF_DIR}/config"
 HOST_CONF_PATH = f"{KUBE_CONF_DIR}/{HOST_CONFIG_FILENAME}"
@@ -134,11 +134,24 @@ def create_kind_cluster():
         name="Get kind cluster",
         commands=[
             # f"kubectl cluster-info --context kind-{NAME}",
-            f"kind get clusters",
+            "kind get clusters",
         ],
     )
     python.call(
         name="Show kind cluster",
+        function=log_callback,
+        result=result,
+    )
+
+    result = server.shell(
+        name="Get kind cluster 2",
+        commands=[
+            # f"kubectl cluster-info --context kind-{NAME}",
+            f"kubectl --kubeconfig {HOST_CONF_PATH} get nodes --context kind-host",
+        ],
+    )
+    python.call(
+        name="Show kind cluster 2",
         function=log_callback,
         result=result,
     )
