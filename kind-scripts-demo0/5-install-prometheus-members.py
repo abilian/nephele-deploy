@@ -121,7 +121,10 @@ prometheus:
 
 PROMETHEUS_REPO = "https://prometheus-community.github.io/helm-charts"
 
-LOAD_K_CONFIG_CMD = "export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config:~/.kube/config"
+# LOAD_K_CONFIG_CMD = "export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config:~/.kube/config"
+LOAD_K_CONFIG_CMD = (
+    "export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config"
+)
 
 
 def main() -> None:
@@ -201,7 +204,7 @@ def install_prometheus_member(mid: int):
     )
 
     server.shell(
-        name=f"Install rometheus stack for member{mid}",
+        name=f"Install Prometheus stack for member{mid}",
         commands=[
             dedent(f"""\
             {use_ctx}

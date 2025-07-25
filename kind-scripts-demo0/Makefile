@@ -12,6 +12,7 @@ deploy-demo0:
 		2-install-kind-kubectl.py \
 		4-install-kubectl-karmada.py \
 		5-install-prometheus-members.py
+		# 6-install-karmada-members.py
 
 
 .PHONY: deploy-demo0
