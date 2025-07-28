@@ -6,13 +6,13 @@
 
 SERVER_NAME?=nephele
 
-deploy-demo0:
+deploy-karmada-nginx:
 	pyinfra -y --user root inventory.py \
 		0-setup-server.py \
 		2-install-kind-kubectl.py \
 		4-install-kubectl-karmada.py \
-		5-install-prometheus-members.py
-		# 6-install-karmada-members.py
+		5-install-prometheus-members.py \
+		13-deploy-nginx.py
 
 
-.PHONY: deploy-demo0
+.PHONY: deploy-karmada-nginx

@@ -1,11 +1,11 @@
 """
-Minimal recipe to install smo-cli nephele
+Minimal recipe to install smo nephele
 
 assuming 0-setup-server.py has already been applied for base packages.
 
 Warning: connection as user root.
 
-pyinfra -y -vvv --user root ${SERVER_NAME} 1-install-nephele-smo.py
+pyinfra -y -v --user root ${SERVER_NAME} 5-install-nephele-smo.py
 """
 
 # from pyinfra import host
