@@ -129,7 +129,7 @@ LOAD_K_CONFIG_CMD = (
 
 def main() -> None:
     install_prometheus_member(1)
-    install_prometheus_member(2)
+    # install_prometheus_member(2)
     install_prometheus_member(3)
 
 

@@ -14,7 +14,6 @@ from pyinfra.facts.files import File
 from pyinfra.facts.hardware import Ipv4Addrs
 from pyinfra.facts.server import LsbRelease, User
 from pyinfra.operations import apt, docker, files, python, server, systemd
-from pyinfra.operations import server
 
 from common import check_server, log_callback
 from constants import GITS, HDAR_URL, REGISTRY_PORT
@@ -66,6 +65,7 @@ def main() -> None:
     install_uv()
     install_docker()
     make_hdarctl()
+    configure_containerd()
     start_docker_registry()
 
 
@@ -293,6 +293,60 @@ def start_docker_registry() -> None:
         name="Show containers list",
         function=log_callback,
         result=result,
+    )
+
+
+def configure_containerd() -> None:
+    CONF = "/etc/containerd/config.toml"
+    CERTD = "/etc/containerd/certs.d"
+    HOST5000 = "127.0.0.1:5000"
+    HOSTS_IO = f"{CERTD}/docker.io/hosts.toml"
+    HOSTS_IO_TOML = (
+        'server = "https://registry-1.docker.io"\n'
+        '[host."https://{docker.mirror.url}"]\n'
+        '  capabilities = ["pull", "resolve"]\n'
+    )
+    HOSTS_5000 = f"{CERTD}/{HOST5000}/hosts.toml"
+    HOSTS_5000_TOML = (
+        'server = "https://registry-1.docker.io"\n'
+        f'[host."http://{HOST5000}"]\n'
+        '  capabilities = ["pull", "resolve"]\n'
+        "  skip_verify = true\n"
+    )
+
+    files.block(
+        name=f"Configure {CONF}",
+        path=CONF,
+        content=(
+            '[plugins."io.containerd.grpc.v1.cri".registry]\n'
+            '  config_path = "/etc/containerd/certs.d"\n'
+        ),
+    )
+    files.directory(
+        name=f"Create {CERTD} directory",
+        path=CERTD,
+    )
+    files.directory(
+        name=f"Create {CERTD}/docker.io directory",
+        path=f"{CERTD}/docker.io",
+    )
+    files.directory(
+        name=f"Create {CERTD}/{HOST5000} directory",
+        path=f"{CERTD}/{HOST5000}",
+    )
+    files.put(
+        name=f"Put file {HOSTS_IO}",
+        src=io.StringIO(HOSTS_IO_TOML),
+        dest=HOSTS_IO,
+    )
+    files.put(
+        name=f"Put file {HOSTS_5000}",
+        src=io.StringIO(HOSTS_5000_TOML),
+        dest=HOSTS_5000,
+    )
+    server.shell(
+        name="Restart containerd",
+        commands=["systemctl restart containerd"],
     )
 
 

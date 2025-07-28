@@ -34,7 +34,7 @@ kubectl get clusters
 karmada-apiserver
 NAME      VERSION   MODE   READY   AGE
 member1   v1.31.2   Push   True    58m
-member2   v1.31.2   Push   True    58m
+# member2   v1.31.2   Push   True    58m
 member3   v1.31.2   Pull   True    58m
 
 
@@ -44,9 +44,61 @@ member3   v1.31.2   Pull   True    58m
 from pyinfra import host
 from pyinfra.facts.files import File
 from pyinfra.operations import apt, files, python, server, snap, systemd
-
+import io
 from common import log_callback
 from constants import GITS
+
+NO_MEMBER2_FILE = "/root/no_member2.patch"
+NO_MEMBER2 = r"""\
+diff --git a/hack/local-up-karmada.sh b/hack/local-up-karmada.sh
+index a18ea97c7..e69229ba1 100755
+--- a/hack/local-up-karmada.sh
++++ b/hack/local-up-karmada.sh
+@@ -54,7 +54,7 @@ export HOST_CLUSTER_NAME=${HOST_CLUSTER_NAME:-"karmada-host"}
+ export KARMADA_APISERVER_CLUSTER_NAME=${KARMADA_APISERVER_CLUSTER_NAME:-"karmada-apiserver"}
+ export MEMBER_CLUSTER_KUBECONFIG=${MEMBER_CLUSTER_KUBECONFIG:-"${KUBECONFIG_PATH}/members.config"}
+ export MEMBER_CLUSTER_1_NAME=${MEMBER_CLUSTER_1_NAME:-"member1"}
+-export MEMBER_CLUSTER_2_NAME=${MEMBER_CLUSTER_2_NAME:-"member2"}
++# export MEMBER_CLUSTER_2_NAME=${MEMBER_CLUSTER_2_NAME:-"member2"}
+ export PULL_MODE_CLUSTER_NAME=${PULL_MODE_CLUSTER_NAME:-"member3"}
+ export HOST_IPADDRESS=${1:-}
+
+@@ -70,20 +70,20 @@ GOPATH=$(go env GOPATH | awk -F ':' '{print $1}')
+ KARMADACTL_BIN="${GOPATH}/bin/karmadactl"
+ ${KARMADACTL_BIN} join --karmada-context="${KARMADA_APISERVER_CLUSTER_NAME}" ${MEMBER_CLUSTER_1_NAME} --cluster-kubeconfig="${MEMBER_CLUSTER_KUBECONFIG}" --cluster-context="${MEMBER_CLUSTER_1_NAME}"
+ "${REPO_ROOT}"/hack/deploy-scheduler-estimator.sh "${MAIN_KUBECONFIG}" "${HOST_CLUSTER_NAME}" "${MEMBER_CLUSTER_KUBECONFIG}" "${MEMBER_CLUSTER_1_NAME}"
+-${KARMADACTL_BIN} join --karmada-context="${KARMADA_APISERVER_CLUSTER_NAME}" ${MEMBER_CLUSTER_2_NAME} --cluster-kubeconfig="${MEMBER_CLUSTER_KUBECONFIG}" --cluster-context="${MEMBER_CLUSTER_2_NAME}"
+-"${REPO_ROOT}"/hack/deploy-scheduler-estimator.sh "${MAIN_KUBECONFIG}" "${HOST_CLUSTER_NAME}" "${MEMBER_CLUSTER_KUBECONFIG}" "${MEMBER_CLUSTER_2_NAME}"
++# ${KARMADACTL_BIN} join --karmada-context="${KARMADA_APISERVER_CLUSTER_NAME}" ${MEMBER_CLUSTER_2_NAME} --cluster-kubeconfig="${MEMBER_CLUSTER_KUBECONFIG}" --cluster-context="${MEMBER_CLUSTER_2_NAME}"
++# "${REPO_ROOT}"/hack/deploy-scheduler-estimator.sh "${MAIN_KUBECONFIG}" "${HOST_CLUSTER_NAME}" "${MEMBER_CLUSTER_KUBECONFIG}" "${MEMBER_CLUSTER_2_NAME}"
+
+ # step4. register pull mode member clusters and install scheduler-estimator
+ "${REPO_ROOT}"/hack/deploy-agent-and-estimator.sh "${MAIN_KUBECONFIG}" "${HOST_CLUSTER_NAME}" "${MAIN_KUBECONFIG}" "${KARMADA_APISERVER_CLUSTER_NAME}" "${MEMBER_CLUSTER_KUBECONFIG}" "${PULL_MODE_CLUSTER_NAME}"
+
+ # step5. deploy metrics-server in member clusters
+ "${REPO_ROOT}"/hack/deploy-k8s-metrics-server.sh "${MEMBER_CLUSTER_KUBECONFIG}" "${MEMBER_CLUSTER_1_NAME}"
+-"${REPO_ROOT}"/hack/deploy-k8s-metrics-server.sh "${MEMBER_CLUSTER_KUBECONFIG}" "${MEMBER_CLUSTER_2_NAME}"
++# "${REPO_ROOT}"/hack/deploy-k8s-metrics-server.sh "${MEMBER_CLUSTER_KUBECONFIG}" "${MEMBER_CLUSTER_2_NAME}"
+ "${REPO_ROOT}"/hack/deploy-k8s-metrics-server.sh "${MEMBER_CLUSTER_KUBECONFIG}" "${PULL_MODE_CLUSTER_NAME}"
+
+ # step6. wait all of clusters member1, member2 and member3 status is ready
+ util:wait_cluster_ready "${KARMADA_APISERVER_CLUSTER_NAME}" "${MEMBER_CLUSTER_1_NAME}"
+-util:wait_cluster_ready "${KARMADA_APISERVER_CLUSTER_NAME}" "${MEMBER_CLUSTER_2_NAME}"
++# util:wait_cluster_ready "${KARMADA_APISERVER_CLUSTER_NAME}" "${MEMBER_CLUSTER_2_NAME}"
+ util:wait_cluster_ready "${KARMADA_APISERVER_CLUSTER_NAME}" "${PULL_MODE_CLUSTER_NAME}"
+
+ function print_success() {
+@@ -94,7 +94,8 @@ function print_success() {
+   echo "Please use 'kubectl config use-context ${HOST_CLUSTER_NAME}/${KARMADA_APISERVER_CLUSTER_NAME}' to switch the host and control plane cluster."
+   echo -e "\nTo manage your member clusters, run:"
+   echo -e "  export KUBECONFIG=${MEMBER_CLUSTER_KUBECONFIG}"
+-  echo "Please use 'kubectl config use-context ${MEMBER_CLUSTER_1_NAME}/${MEMBER_CLUSTER_2_NAME}/${PULL_MODE_CLUSTER_NAME}' to switch to the different member cluster."
++  # echo "Please use 'kubectl config use-context ${MEMBER_CLUSTER_1_NAME}/${MEMBER_CLUSTER_2_NAME}/${PULL_MODE_CLUSTER_NAME}' to switch to the different member cluster."
++  echo "Please use 'kubectl config use-context ${MEMBER_CLUSTER_1_NAME}/${PULL_MODE_CLUSTER_NAME}' to switch to the different member cluster."
+ }
+
+ print_success
+"""
 
 
 def main() -> None:
@@ -126,6 +178,19 @@ def install_karmada_clusters() -> None:
         name="Show kubectl-karmada version",
         function=log_callback,
         result=result,
+    )
+
+    files.put(
+        name="Put no_member2 patch",
+        src=io.StringIO(NO_MEMBER2),
+        dest=NO_MEMBER2_FILE,
+    )
+
+    server.shell(
+        name="Patch hack/local-up-karmada.sh to remove member2",
+        commands=[
+            f"cd {GITS}/karmada && git apply {NO_MEMBER2_FILE}",
+        ],
     )
 
     server.shell(

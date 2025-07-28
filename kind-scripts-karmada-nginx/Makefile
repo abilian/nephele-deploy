@@ -11,6 +11,7 @@ deploy-karmada-nginx:
 		0-setup-server.py \
 		2-install-kind-kubectl.py \
 		4-install-kubectl-karmada.py \
+		6-3-install-prometheus.py \
 		5-install-prometheus-members.py \
 		13-deploy-nginx.py
 
