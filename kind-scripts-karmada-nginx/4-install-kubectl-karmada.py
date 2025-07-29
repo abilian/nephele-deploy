@@ -180,21 +180,21 @@ def install_karmada_clusters() -> None:
         result=result,
     )
 
-    files.put(
-        name="Put no_member2 patch",
-        src=io.StringIO(NO_MEMBER2),
-        dest=NO_MEMBER2_FILE,
-    )
+    # files.put(
+    #     name="Put no_member2 patch",
+    #     src=io.StringIO(NO_MEMBER2),
+    #     dest=NO_MEMBER2_FILE,
+    # )
 
-    server.shell(
-        name="Patch hack/local-up-karmada.sh to remove member2",
-        commands=[
-            f"cd {GITS}/karmada && git apply {NO_MEMBER2_FILE}",
-        ],
-        _shell_executable="/bin/bash",
-        _get_pty=True,
-        _ignore_errors=True,
-    )
+    # server.shell(
+    #     name="Patch hack/local-up-karmada.sh to remove member2",
+    #     commands=[
+    #         f"cd {GITS}/karmada && git apply {NO_MEMBER2_FILE}",
+    #     ],
+    #     _shell_executable="/bin/bash",
+    #     _get_pty=True,
+    #     _ignore_errors=True,
+    # )
 
     server.shell(
         name="Execute hack/local-up-karmada.sh (long)",

@@ -1,6 +1,5 @@
 from pyinfra import host, logger
-from pyinfra.facts.server import LsbRelease, User
-from pyinfra.operations import apt, server, systemd
+from pyinfra.facts.server import LsbRelease
 
 
 def check_server() -> None:

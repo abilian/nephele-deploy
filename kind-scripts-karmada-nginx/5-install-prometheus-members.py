@@ -26,98 +26,16 @@ kubectl get pods -n monitoring
 -> 172.20.0.2:3001
 """
 
-import io
 from textwrap import dedent
 
-from pyinfra.operations import files, python, server
+from pyinfra.operations import python, server
 
 from common import log_callback
 
-PROM_MEMBER_YML = """\
-# prometheus-member-values.yaml
-server:
-  service:
-    type: NodePort
-    nodePort: %s # 30001 for member1,...
-    targetPort: 9090
-
-  configFlags:
-    config.file: /etc/prometheus/prometheus.yml
-
-  extraConfigmapMounts:
-    - name: prometheus-config
-      mountPath: /etc/prometheus/prometheus.yml
-      subPath: prometheus.yml
-      configMap: prometheus-member-config
-
-configMaps:
-  prometheus-member-config:
-    prometheus.yml: |
-      global:
-        scrape_interval: 15s
-        evaluation_interval: 15s
-
-      scrape_configs:
-        - job_name: 'prometheus'
-          static_configs:
-            - targets: ['localhost:9090'] # Scrape itself
-        - job_name: 'kubernetes-nodes'
-          kubernetes_sd_configs:
-          - role: node
-          relabel_configs:
-          - action: labelmap
-            regex: __meta_kubernetes_node_label_(.+)
-          - target_label: __address__
-            replacement: kubernetes.default.svc:443
-          - source_labels: [__meta_kubernetes_node_name]
-            regex: (.+)
-            target_label: __metrics_path__
-            replacement: /api/v1/nodes/${1}/proxy/metrics
-          scheme: https
-          tls_config:
-            insecure_skip_verify: true
-          bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        - job_name: 'kubernetes-pods'
-          kubernetes_sd_configs:
-          - role: pod
-          relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-            action: keep
-            regex: true
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-            action: replace
-            target_label: __metrics_path__
-            regex: (.+)
-          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-            action: replace
-            regex: ([^:]+)(?::\d+)?;(\d+)
-            replacement: $1:$2
-            target_label: __address__
-          - action: labelmap
-            regex: __meta_kubernetes_pod_label_(.+)
-          - source_labels: [__meta_kubernetes_namespace]
-            action: replace
-            target_label: kubernetes_namespace
-          - source_labels: [__meta_kubernetes_pod_name]
-            action: replace
-            target_label: kubernetes_pod_name
-"""
+# CLUSTER_NAME = "karmada-host"  # or member1 ?
+# CENTRAL_PROMETHEUS_IP_AND_PORT = "127.0.0.1:30093"
 
 # for nephele, nedd first the source: <CLUSTER_NAME> ans <CENTRAL_PROMETHEUS_IP_AND_PORT>
-PROM_MEMBER_YML_NEPHELE = """\
-# prometheus-member-values.yaml
-prometheus:
-  prometheusSpec:
-    externalLabels:
-      source: %s
-    scrapeInterval: 30s
-    remoteWrite:
-      - url: "http://%s/api/v1/write"
-
-  service:
-    type: NodePort
-    nodePort: %s
-"""
 
 PROMETHEUS_REPO = "https://prometheus-community.github.io/helm-charts"
 
@@ -129,8 +47,6 @@ LOAD_K_CONFIG_CMD = (
 
 def main() -> None:
     install_prometheus_member(1)
-    # install_prometheus_member(2)
-    install_prometheus_member(3)
 
 
 def member_context_cmd(mid: int) -> str:
@@ -152,9 +68,12 @@ def install_prometheus_member(mid: int):
         commands=[
             dedent(f"""\
             {use_ctx}
+
             kubectl get nodes
             """)
         ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
     )
     python.call(
         name=f"Show member{mid} nodes",
@@ -167,11 +86,14 @@ def install_prometheus_member(mid: int):
         commands=[
             dedent(f"""\
             {use_ctx}
+
             helm uninstall prometheus-member{mid} -n monitoring
             kubectl delete namespace monitoring
             """),
         ],
         _ignore_errors=True,
+        _shell_executable="/bin/bash",
+        _get_pty=True,
     )
 
     server.shell(
@@ -179,9 +101,12 @@ def install_prometheus_member(mid: int):
         commands=[
             dedent(f"""\
             {use_ctx}
+
             kubectl create namespace monitoring
             """)
         ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
     )
 
     server.shell(
@@ -189,18 +114,42 @@ def install_prometheus_member(mid: int):
         commands=[
             dedent(f"""\
             {use_ctx}
+
             helm repo add prometheus-community {PROMETHEUS_REPO}
             helm repo update
             """)
         ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
     )
 
-    file_name = f"prometheus-member{mid}-values.yaml"
-    file_content = PROM_MEMBER_YML % nodeport(mid)
-    files.put(
-        name=f"Put prometheus config file {file_name}",
-        src=io.StringIO(file_content),
-        dest=f"/root/{file_name}",
+    server.shell(
+        name=f"Build Prometheus config for member{mid}",
+        commands=[
+            dedent("""\
+            export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config
+            kubectl config use-context member1
+
+            central_ip=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+            central_port=$(kubectl -n monitoring get svc prometheus-kube-prometheus-prometheus -o jsonpath='{.spec.ports[0].nodePort}')
+
+            cat << EOF > /root/prometheus-member1-values.yaml
+            # prometheus-member-values.yaml
+            prometheus:
+              prometheusSpec:
+                externalLabels:
+                  source: member1
+                scrapeInterval: 30s
+                remoteWrite:
+                  - url: "http://${central_ip}:${central_port}/api/v1/write"
+              service:
+                type: NodePort
+                nodePort: 30101
+            EOF
+            """)
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
     )
 
     server.shell(
@@ -208,15 +157,18 @@ def install_prometheus_member(mid: int):
         commands=[
             dedent(f"""\
             {use_ctx}
+
             helm install prometheus-member{mid} \
+            --create-namespace -n monitoring \
             prometheus-community/prometheus \
-            -n monitoring \
-            -f /root/{file_name}
+            --values /root/prometheus-member1-values.yaml
             """)
             # "helm install prometheus --create-namespace -n monitoring "
             # "prometheus-community/kube-prometheus-stack "
             # "--values /root/{PROM_VALUES_FILE}"
         ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
     )
 
     result = server.shell(
@@ -237,13 +189,110 @@ def install_prometheus_member(mid: int):
     result = server.shell(
         name=f"Check member{mid} docker IP",
         commands=[
-            dedent(f"""\
-                docker inspect -f '{{.NetworkSettings.Networks.kind.IPAddress}}' member{mid}-control-plane
+            dedent("""\
+                docker inspect -f '{{.NetworkSettings.Networks.kind.IPAddress}}' \
+                member1-control-plane
             """)
         ],
     )
     python.call(
-        name=f"Show member{mid} docker IP",
+        name=f"smke test 1: show member{mid} docker IP",
+        function=log_callback,
+        result=result,
+    )
+
+    result = server.shell(
+        name=f"Check member{mid} pods",
+        commands=[
+            dedent(f"""\
+                {use_ctx}
+                kubectl -n monitoring get pods | grep prometheus
+            """)
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
+    )
+    python.call(
+        name=f"smke test 2: show member{mid} prometheus pods",
+        function=log_callback,
+        result=result,
+    )
+
+    result = server.shell(
+        name=f"Check member{mid} services",
+        commands=[
+            dedent(f"""\
+                {use_ctx}
+
+                kubectl -n monitoring get svc prometheus-member1-server
+            """)
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
+    )
+    python.call(
+        name=f"smke test 3: show member{mid} services",
+        function=log_callback,
+        result=result,
+    )
+
+    result = server.shell(
+        name=f"Check member{mid} services",
+        commands=[
+            dedent(f"""\
+                {use_ctx}
+
+                kubectl -n monitoring get svc prometheus-member1-server
+            """)
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
+    )
+    python.call(
+        name=f"smke test 4: show member{mid} services",
+        function=log_callback,
+        result=result,
+    )
+
+    # result = server.shell(
+    #     name=f"Check member{mid} services",
+    #     commands=[
+    #         dedent("""\
+    #             export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config
+    #             kubectl config use-context member1
+
+    #             member1_node_ip=$(kubectl -n monitoring get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+    #             echo "http://${member1_node_ip}:30101"
+    #         """)
+    #     ],
+    #     _shell_executable="/bin/bash",
+    #     _get_pty=True,
+    # )
+    # python.call(
+    #     name=f"smke test 5: show member{mid} node ip port",
+    #     function=log_callback,
+    #     result=result,
+    # )
+
+    result = server.shell(
+        name=f"Check member{mid} access from inner cluster",
+        commands=[
+            dedent("""\
+                export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config
+                kubectl config use-context member1
+
+                sleep 5
+
+                kubectl -n monitoring run -i --tty --rm debug \
+                --image=busybox --restart=Never \
+                -- wget -qO- http://prometheus-member1-server:80 | head -n10
+            """)
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
+    )
+    python.call(
+        name=f"smke test 5: show member{mid} access from inner cluster",
         function=log_callback,
         result=result,
     )

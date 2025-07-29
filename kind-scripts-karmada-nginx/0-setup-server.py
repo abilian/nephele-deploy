@@ -279,12 +279,23 @@ def start_docker_registry() -> None:
         restarted=True,
     )
 
-    docker.container(
+    # docker.container(
+    #     name="Deploy docker registry",
+    #     container="registry",
+    #     image="registry:latest",
+    #     ports=[f"{REGISTRY_PORT}:5000"],
+    #     force=True,
+    # )
+
+    server.shell(
         name="Deploy docker registry",
-        container="registry",
-        image="registry:latest",
-        ports=[f"{REGISTRY_PORT}:5000"],
-        force=True,
+        commands=[
+            (
+                f"docker run -d -p {REGISTRY_PORT}:5000 "
+                "--restart=always "
+                "--name registry registry:latest || true"
+            )
+        ],
     )
 
     result = server.shell(

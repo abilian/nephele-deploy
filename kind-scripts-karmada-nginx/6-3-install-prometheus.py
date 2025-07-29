@@ -201,7 +201,9 @@ def install_kube_prometheus_stack_v2():
             f"""
             export KUBECONFIG="/root/.kube/karmada.config"
             kubectl config use-context karmada-host
-            helm install prometheus --create-namespace -n monitoring prometheus-community/kube-prometheus-stack --values /root/{PROM_VALUES_FILE}
+
+            helm install prometheus --create-namespace -n monitoring \
+            prometheus-community/kube-prometheus-stack --values /root/{PROM_VALUES_FILE}
             """
         ],
         _shell_executable="/bin/bash",
