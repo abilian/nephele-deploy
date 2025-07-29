@@ -80,6 +80,9 @@ spec:
     - protocol: TCP
       port: 80
       targetPort: 80
+      nodePort: 30080
+  type: NodePort
+
 """
 
 
@@ -273,14 +276,45 @@ def install_nginx_member(mid: int):
         result=result,
     )
 
-    server.shell(
-        name="Port-Forward service nginx",
+    # server.shell(
+    #     name="Port-Forward service nginx (method 1)",
+    #     commands=[
+    #         dedent(f"""\
+    #         {context_member1}
+    #         kubectl -n demo port-forward svc/nginx-service 8080:80 &
+    #         sleep 5
+    #         curl http://localhost:8080 | head -5
+    #         """)
+    #     ],
+    #     _shell_executable="/bin/bash",
+    #     _get_pty=True,
+    # )
+    # python.call(
+    #     name="Show service nginx with curl",
+    #     function=log_callback,
+    #     result=result,
+    # )
+
+    result = server.shell(
+        name="Find docker IP and port for nginx",
         commands=[
-            dedent(f"""\
-            {context_member1}
-            kubectl -n demo port-forward svc/nginx-service 8080:80 &
-            sleep 5
-            curl http://localhost:8080 | head -5
+            dedent("""\
+            export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config
+            kubectl config use-context member1
+            port=$(kubectl get svc nginx-service -n demo -o json | jq '.spec.ports[0].nodePort')
+            ip=$(kubectl get nodes -o wide -o json| jq -r '.items[0].status.addresses.[] | select (.type=="InternalIP").address')
+            url="http://${ip}:${port}"
+            max_try=30
+            interval=2
+            for ((i=1; i<=max_try; i++)); do
+              echo "try $url (attempt $i)..."
+              if curl -s --head --fail "$url" > /dev/null; then
+                break
+              else
+                sleep $interval
+              fi
+            done
+            curl -sS $url 2>&1 | head -n5
             """)
         ],
         _shell_executable="/bin/bash",

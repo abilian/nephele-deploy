@@ -191,6 +191,9 @@ def install_karmada_clusters() -> None:
         commands=[
             f"cd {GITS}/karmada && git apply {NO_MEMBER2_FILE}",
         ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
+        _ignore_errors=True,
     )
 
     server.shell(
