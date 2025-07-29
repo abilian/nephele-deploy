@@ -30,6 +30,8 @@ BASE_APT_PACKAGES = [
     "python3-requests",
     "git",
     "tree",
+    "iotop",
+    "jq",
 ]
 
 DOCKER_APT_PACKAGES = [
