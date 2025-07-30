@@ -1,0 +1,12 @@
+root@ubuntu-16gb-hel1-4:~/gits# curl -k https://172.18.0.5:6443/
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "forbidden: User \"system:anonymous\" cannot get path \"/\"",
+  "reason": "Forbidden",
+  "details": {},
+  "code": 403
+}
+
