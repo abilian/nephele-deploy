@@ -148,7 +148,7 @@ def replace_ip() -> None:
                 kind_node_ip=$(docker inspect -f '{{{{range.NetworkSettings.Networks}}}}{{{{.IPAddress}}}}{{{{end}}}}' karmada-host-control-plane)
 
                 cd config
-                perl -pi -e 's/10.0.3.53/${{kind_node_ip}}/g' flask.env
+                perl -pi -e "s/10.0.3.53/${{kind_node_ip}}/g" flask.env
             """
         ],
         _shell_executable="/bin/bash",
