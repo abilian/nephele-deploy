@@ -126,25 +126,25 @@ def install_prometheus_member(mid: int):
     server.shell(
         name=f"Build Prometheus config for member{mid}",
         commands=[
-            dedent("""\
+            dedent(f"""\
             export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config
-            kubectl config use-context member1
+            kubectl config use-context karmada-host
 
-            central_ip=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-            central_port=$(kubectl -n monitoring get svc prometheus-kube-prometheus-prometheus -o jsonpath='{.spec.ports[0].nodePort}')
+            central_ip=$(kubectl get nodes -o jsonpath='{{.items[0].status.addresses[?(@.type=="InternalIP")].address}}')
+            central_port=$(kubectl -n monitoring get svc prometheus-kube-prometheus-prometheus -o jsonpath='{{.spec.ports[0].nodePort}}')
 
-            cat << EOF > /root/prometheus-member1-values.yaml
-            # prometheus-member-values.yaml
+            cat << EOF > /root/prometheus-member{mid}-values.yaml
+            # prometheus-member{mid}-values.yaml
             prometheus:
               prometheusSpec:
                 externalLabels:
-                  source: member1
+                  source: member{mid}
                 scrapeInterval: 30s
                 remoteWrite:
-                  - url: "http://${central_ip}:${central_port}/api/v1/write"
+                  - url: "http://${{central_ip}}:${{central_port}}/api/v1/write"
               service:
+                nodePort: 30090
                 type: NodePort
-                nodePort: 30101
             EOF
             """)
         ],
@@ -169,6 +169,82 @@ def install_prometheus_member(mid: int):
         ],
         _shell_executable="/bin/bash",
         _get_pty=True,
+    )
+
+    # root@ubuntu-16gb-hel1-4:~# helm install prometheus-member1 --create-namespace -n monitoring prometheus-community/prometheus --values /root/prometheus-member1-values.yaml
+    # NAME: prometheus-member1
+    # LAST DEPLOYED: Wed Jul 30 09:56:30 2025
+    # NAMESPACE: monitoring
+    # STATUS: deployed
+    # REVISION: 1
+    # TEST SUITE: None
+    # NOTES:
+    # The Prometheus server can be accessed via port 80 on the following DNS name from within your cluster:
+    # prometheus-member1-server.monitoring.svc.cluster.local
+
+    # Get the Prometheus server URL by running these commands in the same shell:
+    #   export POD_NAME=$(kubectl get pods --namespace monitoring -l "app.kubernetes.io/name=prometheus,app.kubernetes.io/instance=prometheus-member1" -o jsonpath="{.items[0].metadata.name}")
+    #   kubectl --namespace monitoring port-forward $POD_NAME 9090
+
+    # The Prometheus alertmanager can be accessed via port 9093 on the following DNS name from within your cluster:
+    # prometheus-member1-alertmanager.monitoring.svc.cluster.local
+
+    # Get the Alertmanager URL by running these commands in the same shell:
+    #   export POD_NAME=$(kubectl get pods --namespace monitoring -l "app.kubernetes.io/name=alertmanager,app.kubernetes.io/instance=prometheus-member1" -o jsonpath="{.items[0].metadata.name}")
+    #   kubectl --namespace monitoring port-forward $POD_NAME 9093
+    # #################################################################################
+    # ######   WARNING: Pod Security Policy has been disabled by default since    #####
+    # ######            it deprecated after k8s 1.25+. use                        #####
+    # ######            (index .Values "prometheus-node-exporter" "rbac"          #####
+    # ###### .          "pspEnabled") with (index .Values                         #####
+    # ######            "prometheus-node-exporter" "rbac" "pspAnnotations")       #####
+    # ######            in case you still need it.                                #####
+    # #################################################################################
+
+    # The Prometheus PushGateway can be accessed via port 9091 on the following DNS name from within your cluster:
+    # prometheus-member1-prometheus-pushgateway.monitoring.svc.cluster.local
+
+    # Get the PushGateway URL by running these commands in the same shell:
+    #   export POD_NAME=$(kubectl get pods --namespace monitoring -l "app=prometheus-pushgateway,component=pushgateway" -o jsonpath="{.items[0].metadata.name}")
+    #   kubectl --namespace monitoring port-forward $POD_NAME 9091
+
+    # For more information on running Prometheus, visit:
+    # https://prometheus.io/
+    # root@ubuntu-16gb-hel1-4:~#
+    #
+
+    result = server.shell(
+        name=f"Fix member{mid} nodeport type",
+        commands=[
+            dedent(f"""\
+            {use_ctx}
+
+            kubectl get svc prometheus-member{mid}-server -n monitoring \
+            -o yaml > /root/prometheus-svc-{mid}-backup-before.yaml
+
+            kubectl patch svc prometheus-member{mid}-server -n monitoring \
+            --type='json' \
+            -p='[{{"op":"replace","path":"/spec/type","value":"NodePort"}},{{"op":"replace","path":"/spec/ports/0/nodePort","value":30090}}]'
+
+            kubectl get svc prometheus-member{mid}-server -n monitoring \
+            -o yaml > /root/prometheus-svc-{mid}-backup-after.yaml
+            """)
+        ],
+    )
+
+    result = server.shell(
+        name=f"Check member{mid} NodePort type",
+        commands=[
+            dedent(f"""\
+            {use_ctx}
+            kubectl get svc prometheus-member{mid}-server -n monitoring
+            """)
+        ],
+    )
+    python.call(
+        name=f"Show member{mid} NodePort type",
+        function=log_callback,
+        result=result,
     )
 
     result = server.shell(
@@ -196,7 +272,7 @@ def install_prometheus_member(mid: int):
         ],
     )
     python.call(
-        name=f"smke test 1: show member{mid} docker IP",
+        name=f"Smoke test 1: show member{mid} docker IP",
         function=log_callback,
         result=result,
     )
@@ -213,7 +289,7 @@ def install_prometheus_member(mid: int):
         _get_pty=True,
     )
     python.call(
-        name=f"smke test 2: show member{mid} prometheus pods",
+        name=f"smoke test 2: show member{mid} prometheus pods",
         function=log_callback,
         result=result,
     )
@@ -231,7 +307,7 @@ def install_prometheus_member(mid: int):
         _get_pty=True,
     )
     python.call(
-        name=f"smke test 3: show member{mid} services",
+        name=f"smoke test 3: show member{mid} services",
         function=log_callback,
         result=result,
     )
@@ -254,25 +330,39 @@ def install_prometheus_member(mid: int):
         result=result,
     )
 
-    # result = server.shell(
-    #     name=f"Check member{mid} services",
-    #     commands=[
-    #         dedent("""\
-    #             export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config
-    #             kubectl config use-context member1
+    result = server.shell(
+        name=f"Check member{mid} access from outer cluster",
+        commands=[
+            dedent("""\
+                export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config
+                kubectl config use-context karmada-host
 
-    #             member1_node_ip=$(kubectl -n monitoring get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-    #             echo "http://${member1_node_ip}:30101"
-    #         """)
-    #     ],
-    #     _shell_executable="/bin/bash",
-    #     _get_pty=True,
-    # )
-    # python.call(
-    #     name=f"smke test 5: show member{mid} node ip port",
-    #     function=log_callback,
-    #     result=result,
-    # )
+                member1_node_ip=$(kubectl -n monitoring get nodes -o \
+                jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+
+                url="http://${member1_node_ip}:30090"
+
+                max_try=30
+                interval=2
+                for ((i=1; i<=max_try; i++)); do
+                  echo "try ${url} (attempt $i)..."
+                  if curl -s ${url} > /dev/null; then
+                    break
+                  else
+                    sleep $interval
+                  fi
+                done
+                curl -sS ${url} 2>&1 | head -n5
+            """)
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
+    )
+    python.call(
+        name=f"Smoke test 5: member{mid} access from outer cluster",
+        function=log_callback,
+        result=result,
+    )
 
     result = server.shell(
         name=f"Check member{mid} access from inner cluster",
@@ -281,18 +371,20 @@ def install_prometheus_member(mid: int):
                 export KUBECONFIG=/root/.kube/karmada.config:/root/.kube/members.config
                 kubectl config use-context member1
 
-                sleep 5
+                sleep 10
 
                 kubectl -n monitoring run -i --tty --rm debug \
                 --image=busybox --restart=Never \
-                -- wget -qO- http://prometheus-member1-server:80 | head -n10
+                -- sh -c 'i=0; while [ $i -lt 10 ]; do \
+                wget -qO- http://prometheus-member1-server:80 2>/dev/null \
+                && break; i=$((i+1)); sleep 2; done | head -n10'
             """)
         ],
         _shell_executable="/bin/bash",
         _get_pty=True,
     )
     python.call(
-        name=f"smke test 5: show member{mid} access from inner cluster",
+        name=f"Smoke test 6: show member{mid} access from inner cluster",
         function=log_callback,
         result=result,
     )
