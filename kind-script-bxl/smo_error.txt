@@ -1,0 +1,92 @@
+smo       | Traceback (most recent call last):
+smo       |   File "/app/.venv/bin/flask", line 10, in <module>
+smo       |     sys.exit(main())
+smo       |              ^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 1129, in main
+smo       |     cli.main()
+smo       |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1363, in main
+smo       |     rv = self.invoke(ctx)
+smo       |          ^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1830, in invoke
+smo       |     return _process_result(sub_ctx.command.invoke(sub_ctx))
+smo       |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1226, in invoke
+smo       |     return ctx.invoke(self.callback, **ctx.params)
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 794, in invoke
+smo       |     return callback(*args, **kwargs)
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/click/decorators.py", line 93, in new_func
+smo       |     return ctx.invoke(f, obj, *args, **kwargs)
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 794, in invoke
+smo       |     return callback(*args, **kwargs)
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 977, in run_command
+smo       |     raise e from None
+smo       |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 961, in run_command
+smo       |     app: WSGIApplication = info.load_app()  # pyright: ignore
+smo       |                            ^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 353, in load_app
+smo       |     app = locate_app(import_name, None, raise_if_not_found=False)
+smo       |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 262, in locate_app
+smo       |     return find_best_app(module)
+smo       |            ^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 72, in find_best_app
+smo       |     app = app_factory()
+smo       |           ^^^^^^^^^^^^^
+smo       |   File "/app/src/app.py", line 48, in create_app
+smo       |     fetch_clusters(
+smo       |   File "/app/src/services/cluster/cluster_service.py", line 14, in fetch_clusters
+smo       |     karmada_cluster_info = karmada_helper.get_cluster_info()
+smo       |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/src/utils/karmada_helper.py", line 28, in get_cluster_info
+smo       |     clusters = self.custom_api.list_cluster_custom_object(group, version, plural)
+smo       |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api/custom_objects_api.py", line 2090, in list_cluster_custom_object
+smo       |     return self.list_cluster_custom_object_with_http_info(group, version, plural, **kwargs)  # noqa: E501
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api/custom_objects_api.py", line 2221, in list_cluster_custom_object_with_http_info
+smo       |     return self.api_client.call_api(
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api_client.py", line 348, in call_api
+smo       |     return self.__call_api(resource_path, method,
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api_client.py", line 180, in __call_api
+smo       |     response_data = self.request(
+smo       |                     ^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api_client.py", line 373, in request
+smo       |     return self.rest_client.GET(url,
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/rest.py", line 244, in GET
+smo       |     return self.request("GET", url,
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/rest.py", line 217, in request
+smo       |     r = self.pool_manager.request(method, url,
+smo       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/urllib3/_request_methods.py", line 135, in request
+smo       |     return self.request_encode_url(
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/urllib3/_request_methods.py", line 182, in request_encode_url
+smo       |     return self.urlopen(method, url, **extra_kw)
+smo       |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/urllib3/poolmanager.py", line 443, in urlopen
+smo       |     response = conn.urlopen(method, u.request_uri, **kw)
+smo       |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 871, in urlopen
+smo       |     return self.urlopen(
+smo       |            ^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 871, in urlopen
+smo       |     return self.urlopen(
+smo       |            ^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 871, in urlopen
+smo       |     return self.urlopen(
+smo       |            ^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+smo       |     retries = retries.increment(
+smo       |               ^^^^^^^^^^^^^^^^^^
+smo       |   File "/app/.venv/lib/python3.11/site-packages/urllib3/util/retry.py", line 519, in increment
+smo       |     raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+smo       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+smo       | urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='172.18.0.5', port=6443): Max retries exceeded with url: /apis/cluster.karmada.io/v1alpha1/clusters (Caused by ConnectTimeoutError(<urllib3.connection.HTTPSConnection object at 0x79925a76d410>, 'Connection to 172.18.0.5 timed out. (connect timeout=None)'))
