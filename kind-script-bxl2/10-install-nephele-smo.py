@@ -22,78 +22,9 @@ SMO_NEPHE_URL = (
 SMO_CLI = "/usr/local/bin/smo-cli"
 BRANCH = "main"
 LOCAL_IP = "127.0.0.1"
+INTERNAL_IP = "host.docker.internal"
 REPO = f"{GITS}/{SMO_NEPHE}"
 DEMO = f"{REPO}/examples/brussels-demo/"
-
-SMO_PATCH = """\
-diff --git a/docker-compose.yml b/docker-compose.yml
-index 43f8ca1..b8108c4 100644
---- a/docker-compose.yml
-+++ b/docker-compose.yml
-@@ -3,6 +3,8 @@ services:
-     restart: always
-     container_name: smo
-     build: .
-+    extra_hosts:
-+      - "host.docker.internal:host-gateway"
-     env_file:
-     - config/flask.env
-     volumes:
-@@ -17,14 +19,18 @@ services:
-     depends_on:
-       postgres:
-         condition: service_healthy
-+    networks:
-+      - kind
-+      #- smo-net
-     ports:
--      - 8000:8000
--    extra_hosts:
--    - "host.docker.internal:host-gateway"
-+      - "8000:8000"
-   postgres:
-     restart: always
-     container_name: postgres
-     image: postgres:16.2
-+    networks:
-+      - kind
-+      #- smo-net
-     env_file:
-     - config/postgres.env
-     healthcheck:
-@@ -33,3 +39,8 @@ services:
-       timeout: 3s
-       retries: 3
-       start_period: 3s
-+networks:
-+  kind:
-+    external: true
-+  #smo-net:
-+  #  driver: bridge
-diff --git a/src/utils/karmada_helper.py b/src/utils/karmada_helper.py
-index d8775e9..8b6d85d 100644
---- a/src/utils/karmada_helper.py
-+++ b/src/utils/karmada_helper.py
-@@ -14,7 +14,17 @@ class KarmadaHelper():
-         self.namespace = namespace
-         self.config_file_path = config_file_path
-
--        config.load_kube_config(config_file=self.config_file_path)
-+        KARMADA_CONTEXT_NAME = "karmada-apiserver"
-+
-+        try:
-+            config.load_kube_config(config_file=self.config_file_path, context=KARMADA_CONTEXT_NAME)
-+            print(f"Successfully loaded kubeconfig for context: {KARMADA_CONTEXT_NAME}")
-+        except config.ConfigException as e:
-+            print(f"ERROR: Failed to load Karmada kubeconfig context '{KARMADA_CONTEXT_NAME}': {e}")
-+            print("Check ~/.kube/karmada-apiserver.config file has the 'karmada-apiserver' context.")
-+            raise
-+
-+		#config.load_kube_config(config_file=self.config_file_path)
-
-         self.custom_api = client.CustomObjectsApi()
-         self.v1_api_client = client.AppsV1Api()
-"""
 
 
 def main() -> None:
@@ -141,14 +72,18 @@ def install_smo() -> None:
         _get_pty=True,
     )
 
-    server.shell(
-        name="Patch smo for kid compatibility",
-        commands=[
-            f"cd {GITS}/smo && echo '{SMO_PATCH}' | git apply",
-        ],
-        _shell_executable="/bin/bash",
-        _get_pty=True,
-        _ignore_errors=True,
+    files.put(
+        name="Put smo fix",
+        src="fix/karmada_helper.py",
+        dest="/root/gits/smo/src/utilsl/karmada_helper.py",
+        mode="644",
+    )
+
+    files.put(
+        name="Put fixed docker compose file",
+        src="fix/docker-compose.yml",
+        dest="/root/gits/smo/docker-compose.yml",
+        mode="644",
     )
 
     server.shell(
@@ -218,13 +153,13 @@ def replace_ip() -> None:
                 perl -pi -e 's/10.0.3.53/{LOCAL_IP}/g' Makefile
                 perl -pi -e 's/10.0.3.53/{LOCAL_IP}/g' create-existing-artifact.sh
                 cd {DEMO}/hdag
-                perl -pi -e 's/10.0.3.53/{LOCAL_IP}/g' hdag.yaml
+                perl -pi -e 's/10.0.3.53/{INTERNAL_IP}/g' hdag.yaml
                 cd {DEMO}/image-compression-vo/templates
-                perl -pi -e 's/10.0.3.53/{LOCAL_IP}/g' deployment.yaml
+                perl -pi -e 's/10.0.3.53/{INTERNAL_IP}/g' deployment.yaml
                 cd {DEMO}/image-detection/templates
-                perl -pi -e 's/10.0.3.53/{LOCAL_IP}/g' deployment.yaml
+                perl -pi -e 's/10.0.3.53/{INTERNAL_IP}/g' deployment.yaml
                 cd {DEMO}/noise-reduction/templates
-                perl -pi -e 's/10.0.3.53/{LOCAL_IP}/g' deployment.yaml
+                perl -pi -e 's/10.0.3.53/{INTERNAL_IP}/g' deployment.yaml
 
                 cd {DEMO}
                 perl -pi -e 's;REGISTRY_URL=.*;REGISTRY_URL="http://host.docker.internal:5000";g' create-existing-artifact.sh
@@ -259,25 +194,6 @@ def replace_ip() -> None:
         _shell_executable="/bin/bash",
         _get_pty=True,
     )
-    # server.shell(
-    #     name="Install missing grafana",
-    #     commands=[
-    #         """
-    #             export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-    #             kubectl config use-context karmada-host
-
-    #             helm repo add grafana https://grafana.github.io/helm-charts
-    #             helm repo update
-
-    #             helm install grafana grafana/grafana \
-    #             --namespace monitoring --create-namespace \
-    #             --set service.type=NodePort \
-    #             --set service.nodePort=31802
-    #         """
-    #     ],
-    #     _shell_executable="/bin/bash",
-    #     _get_pty=True,
-    # )
 
     result = server.shell(
         name="get grafana IP and password",
@@ -301,6 +217,7 @@ def replace_ip() -> None:
             # curl ${{grafana_url}}
 
             # Use the grafana installed by prometheus:
+
             kubectl -n monitoring get svc prometheus-grafana
             central_node_ip=$(kubectl get nodes -o jsonpath='{{.items[0].status.addresses[?(@.type=="InternalIP")].address}}')
             node_port=$(kubectl -n monitoring get svc prometheus-grafana -o jsonpath='{{.spec.ports[0].nodePort}}')
@@ -482,30 +399,74 @@ def create_existing_artifacts() -> None:
 
 main()
 
-
-# Traceback (most recent call last):
-#   File "/app/.venv/lib/python3.11/site-packages/flask/app.py", line 1536, in __call__
-#     return self.wsgi_app(environ, start_response)
-#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/app/.venv/lib/python3.11/site-packages/flask/app.py", line 1514, in wsgi_app
-#     response = self.handle_exception(e)
-#                ^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/app/.venv/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
-#     response = self.full_dispatch_request()
-#                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/app/.venv/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
-#     rv = self.handle_user_exception(e)
-#          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/app/.venv/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
-#     rv = self.dispatch_request()
-#          ^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/app/.venv/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
-#     return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-#            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/app/.venv/lib/python3.11/site-packages/flasgger/utils.py", line 305, in wrapper
-#     return function(*args, **kwargs)
-#            ^^^^^^^^^^^^^^^^^^^^^^^^^
-#   File "/app/src/routes/hdag/graph.py", line 37, in deploy
-#     graph_descriptor = descriptor['hdaGraph']
-#                        ^^^^^^^^^^^^^^^^^^^^^^
-# TypeError: 'NoneType' object is not subscriptable
+# smo  | Traceback (most recent call last):
+# smo  |   File "/app/.venv/bin/flask", line 10, in <module>
+# smo  |     sys.exit(main())
+# smo  |              ^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 1129, in main
+# smo  |     cli.main()
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1363, in main
+# smo  |     rv = self.invoke(ctx)
+# smo  |          ^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1830, in invoke
+# smo  |     return _process_result(sub_ctx.command.invoke(sub_ctx))
+# smo  |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 1226, in invoke
+# smo  |     return ctx.invoke(self.callback, **ctx.params)
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 794, in invoke
+# smo  |     return callback(*args, **kwargs)
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/click/decorators.py", line 93, in new_func
+# smo  |     return ctx.invoke(f, obj, *args, **kwargs)
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/click/core.py", line 794, in invoke
+# smo  |     return callback(*args, **kwargs)
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 977, in run_command
+# smo  |     raise e from None
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 961, in run_command
+# smo  |     app: WSGIApplication = info.load_app()  # pyright: ignore
+# smo  |                            ^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 353, in load_app
+# smo  |     app = locate_app(import_name, None, raise_if_not_found=False)
+# smo  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 262, in locate_app
+# smo  |     return find_best_app(module)
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/flask/cli.py", line 72, in find_best_app
+# smo  |     app = app_factory()
+# smo  |           ^^^^^^^^^^^^^
+# smo  |   File "/app/src/app.py", line 48, in create_app
+# smo  |     fetch_clusters(
+# smo  |   File "/app/src/services/cluster/cluster_service.py", line 14, in fetch_clusters
+# smo  |     karmada_cluster_info = karmada_helper.get_cluster_info()
+# smo  |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/src/utils/karmada_helper.py", line 28, in get_cluster_info
+# smo  |     clusters = self.custom_api.list_cluster_custom_object(group, version, plural)
+# smo  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api/custom_objects_api.py", line 2090, in list_cluster_custom_object
+# smo  |     return self.list_cluster_custom_object_with_http_info(group, version, plural, **kwargs)  # noqa: E501
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api/custom_objects_api.py", line 2221, in list_cluster_custom_object_with_http_info
+# smo  |     return self.api_client.call_api(
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api_client.py", line 348, in call_api
+# smo  |     return self.__call_api(resource_path, method,
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api_client.py", line 180, in __call_api
+# smo  |     response_data = self.request(
+# smo  |                     ^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/api_client.py", line 373, in request
+# smo  |     return self.rest_client.GET(url,
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/rest.py", line 244, in GET
+# smo  |     return self.request("GET", url,
+# smo  |            ^^^^^^^^^^^^^^^^^^^^^^^^
+# smo  |   File "/app/.venv/lib/python3.11/site-packages/kubernetes/client/rest.py", line 238, in request
+# smo  |     raise ApiException(http_resp=r)
+# smo  | kubernetes.client.exceptions.ApiException: (404)
+# smo  | Reason: Not Found
+# smo  | HTTP response headers: HTTPHeaderDict({'Audit-Id': 'f8a9634d-89b0-4288-b165-3d43bc700204', 'Cache-Control': 'no-cache, private', 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'X-Kubernetes-Pf-Flowschema-Uid': 'eaa48780-76ab-4a1e-998e-f6644fcc6a02', 'X-Kubernetes-Pf-Prioritylevel-Uid': '874ba548-0891-42e3-9182-a2e95048a2bf', 'Date': 'Fri, 01 Aug 2025 13:55:25 GMT', 'Content-Length': '19'})
+# smo  | HTTP response body: 404 page not found
+# smo  |
