@@ -41,7 +41,6 @@ member3   v1.31.2   Pull   True    58m
 
 """
 
-
 from pyinfra.operations import files, python, server
 
 from common import log_callback
@@ -99,6 +98,9 @@ index a18ea97c7..e69229ba1 100755
  print_success
 """
 
+KARMADA_VERSION = "1.14.2"
+RELEASE = "release-1.14"
+
 
 def main() -> None:
     delete_kind_clusters()
@@ -136,20 +138,21 @@ def git_clone_karmada() -> None:
     server.shell(
         name=f"Clone/pull {SOURCE}",
         commands=[
-            f"[ -d {REPO} ] || git clone --depth 1 {SOURCE} {REPO}",
+            f"[ -d {REPO} ] || git clone {SOURCE} {REPO}",
             f"""
                 cd {REPO}
                 git pull
+                git checkout {RELEASE}
             """,
         ],
     )
 
 
 def install_karmada_clusters() -> None:
-    INSTALLER_URL = (
-        "https://raw.githubusercontent.com/karmada-io/"
-        "karmada/master/hack/install-cli.sh"
-    )
+    # INSTALLER_URL = (
+    #     "https://raw.githubusercontent.com/karmada-io/"
+    #     "karmada/master/hack/install-cli.sh"
+    # )
     files.file(
         name="Remove old kubectl-karmada CLI",
         path="/usr/local/bin/kubectl-karmada",
@@ -160,12 +163,16 @@ def install_karmada_clusters() -> None:
         path="/usr/local/bin/karmadactl",
         present=False,
     )
-
+    INSTALLER = f"{GITS}/karmada/hack/install-cli.sh"
     server.shell(
         name="Install Karmada CLI",
         commands=[
-            f"curl -s {INSTALLER_URL} | sudo bash -s kubectl-karmada",
+            f"""
+            export INSTALL_CLI_VERSION={KARMADA_VERSION}
+            /bin/bash {INSTALLER} kubectl-karmada
+            """
         ],
+        _shell_executable="/bin/bash",
         _get_pty=True,
     )
 

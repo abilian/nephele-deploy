@@ -31,7 +31,7 @@ def main() -> None:
     remove_prior_smo_cli()
     install_smo()
     # make_smo_tests()
-    replace_ip()
+    configure_smo()
     start_smo()
     make_brussels_demo_images()
     show_docker_images()
@@ -63,9 +63,9 @@ def install_smo() -> None:
             f"""
                 cd {REPO}
                 git fetch
+                git clean -fxd
                 git checkout {BRANCH}
                 git reset --hard HEAD
-                git pull
             """,
         ],
         _shell_executable="/bin/bash",
@@ -73,17 +73,23 @@ def install_smo() -> None:
     )
 
     files.put(
-        name="Put smo fix",
-        src="fix/karmada_helper.py",
-        dest="/root/gits/smo/src/utilsl/karmada_helper.py",
+        name="Put smo patch file",
+        src="fix/kind.patch",
+        dest="/root/gits/smo/kind.patch",
         mode="644",
     )
 
-    files.put(
-        name="Put fixed docker compose file",
-        src="fix/docker-compose.yml",
-        dest="/root/gits/smo/docker-compose.yml",
-        mode="644",
+    server.shell(
+        name="Apply patch to smo",
+        commands=[
+            f"[ -d {REPO} ] || git clone {SMO_NEPHE_URL} {REPO}",
+            f"""
+                cd {REPO}
+                git apply kind.patch
+            """,
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
     )
 
     server.shell(
@@ -116,34 +122,35 @@ def make_smo_tests() -> None:
     )
 
 
-def replace_ip() -> None:
-    server.shell(
-        name="Reset config files",
-        commands=[
-            f"""\
-                cd {REPO}
-                . .venv/bin/activate
-                cd {DEMO}
-                git restore -- Makefile
-                git restore -- create-existing-artifact.sh
-                cd {DEMO}/hdag
-                git restore --  hdag.yaml
-                cd {DEMO}/image-compression-vo/templates
-                git restore -- deployment.yaml
-                cd {DEMO}/image-detection/templates
-                git restore -- deployment.yaml
-                cd {DEMO}/noise-reduction/templates
-                git restore -- deployment.yaml
-                cd {REPO}/config
-                git restore -- flask.env
-            """
-        ],
-        _shell_executable="/bin/bash",
-        _get_pty=True,
-    )
+def configure_smo() -> None:
+    # def replace_ip() -> None:
+    #     server.shell(
+    #         name="Reset config files",
+    #         commands=[
+    #             f"""\
+    #                 cd {REPO}
+    #                 . .venv/bin/activate
+    #                 cd {DEMO}
+    #                 git restore -- Makefile
+    #                 git restore -- create-existing-artifact.sh
+    #                 cd {DEMO}/hdag
+    #                 git restore --  hdag.yaml
+    #                 cd {DEMO}/image-compression-vo/templates
+    #                 git restore -- deployment.yaml
+    #                 cd {DEMO}/image-detection/templates
+    #                 git restore -- deployment.yaml
+    #                 cd {DEMO}/noise-reduction/templates
+    #                 git restore -- deployment.yaml
+    #                 cd {REPO}/config
+    #                 git restore -- flask.env
+    #             """
+    #         ],
+    #         _shell_executable="/bin/bash",
+    #         _get_pty=True,
+    #     )
 
     server.shell(
-        name="Restore config files",
+        name="Replace IP in smo files",
         commands=[
             f"""\
                 cd {REPO}
@@ -194,6 +201,21 @@ def replace_ip() -> None:
         _shell_executable="/bin/bash",
         _get_pty=True,
     )
+
+    # server.shell(
+    #     name="Add  KARMADA_CONTEXT_NAME in smo config",
+    #     commands=[
+    #         f"""\
+    #             cd {REPO}
+    #             . .venv/bin/activate
+
+    #             cd config
+    #             echo "KARMADA_CONTEXT='karmada-apiserver'" >> flask.env
+    #         """
+    #     ],
+    #     _shell_executable="/bin/bash",
+    #     _get_pty=True,
+    # )
 
     result = server.shell(
         name="get grafana IP and password",
