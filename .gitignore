@@ -6,6 +6,7 @@ dist/
 wheels/
 *.egg-info
 pyinfra-debug.log
+
 # Virtual environments
 .venv
 .python-version
@@ -13,6 +14,8 @@ pyinfra-debug.log
 # Local stuff
 /sandbox/
 /tmp/
+.aider*
 
 # Secrets
 .envrc
+.env
