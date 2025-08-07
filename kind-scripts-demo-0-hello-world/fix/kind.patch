@@ -282,7 +282,7 @@ index 628f2f9..88b7766 100644
 +    "development": DevConfig,
  }
 diff --git a/src/routes/cluster/cluster.py b/src/routes/cluster/cluster.py
-index 6aef0b6..8358212 100644
+index 6aef0b6..87394ce 100644
 --- a/src/routes/cluster/cluster.py
 +++ b/src/routes/cluster/cluster.py
 @@ -5,16 +5,19 @@ from flask import Blueprint, current_app
@@ -303,11 +303,11 @@ index 6aef0b6..8358212 100644
      clusters = fetch_clusters(
 -        current_app.config['KARMADA_KUBECONFIG'],
 -        current_app.config['GRAFANA_HOST'], current_app.config['GRAFANA_USERNAME'], current_app.config['GRAFANA_PASSWORD']
-+        karmada_kubeconfig=app.config["KARMADA_KUBECONFIG"],
-+        grafana_host=app.config["GRAFANA_HOST"],
-+        grafana_username=app.config["GRAFANA_USERNAME"],
-+        grafana_password=app.config["GRAFANA_PASSWORD"],
-+        karmada_context=app.config["KARMADA_CONTEXT"],
++        karmada_kubeconfig=current_app.config["KARMADA_KUBECONFIG"],
++        grafana_host=current_app.config["GRAFANA_HOST"],
++        grafana_username=current_app.config["GRAFANA_USERNAME"],
++        grafana_password=current_app.config["GRAFANA_PASSWORD"],
++        karmada_context=current_app.config["KARMADA_CONTEXT"],
      )
      return clusters, 200
 diff --git a/src/services/cluster/cluster_service.py b/src/services/cluster/cluster_service.py

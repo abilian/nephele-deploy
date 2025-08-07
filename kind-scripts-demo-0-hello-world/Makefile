@@ -6,7 +6,7 @@
 
 SERVER_NAME?=nephele
 
-deploy-nginx:
+deploy-demo0:
 	pyinfra -y --user root inventory.py \
 		0-setup-server.py \
 		2-install-kind-kubectl.py \
@@ -19,4 +19,4 @@ deploy-nginx:
 		12-deploy-demo-hello-world.py
 
 
-.PHONY: deploy-nginx
+.PHONY: deploy-demo0
