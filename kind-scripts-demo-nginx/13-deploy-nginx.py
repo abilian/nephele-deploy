@@ -285,5 +285,24 @@ def install_nginx_member(mid: int):
         result=result,
     )
 
+    result = server.shell(
+        name="Undeploy the service nginx",
+        commands=[
+            dedent("""\
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context member1
+
+            kubectl -n demo delete svc nginx-service
+            """)
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
+    )
+    python.call(
+        name="Show Undeploy the service nginx",
+        function=log_callback,
+        result=result,
+    )
+
 
 main()
