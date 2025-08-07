@@ -60,7 +60,7 @@ def configure_demo_addresses() -> None:
 
                 cd {DEMO}
                 perl -pi -e 's;REGISTRY_URL=.*;REGISTRY_URL="http://{INTERNAL_IP}:5000";g' create-existing-artifact.sh
-
+                perl -pi -e 's;localhost;{LOCAL_IP};g' delete.sh
             """
         ],
         _shell_executable="/bin/bash",
@@ -175,6 +175,25 @@ def make_test_manifest_an_artifacts() -> None:
 
 def create_existing_artifacts() -> None:
     result = server.shell(
+        name="Check smo status",
+        commands=[
+            f"""\
+                cd {REPO}
+                . .venv/bin/activate
+
+                docker compose ps smo
+            """,
+        ],
+        _shell_executable="/bin/bash",
+        _get_pty=True,
+    )
+    python.call(
+        name="Show smo status",
+        function=log_callback,
+        result=result,
+    )
+
+    result = server.shell(
         name="Run create-existing-artifact.sh",
         commands=[
             f"""\
@@ -182,9 +201,6 @@ def create_existing_artifacts() -> None:
                 . .venv/bin/activate
 
                 cd {DEMO}
-
-                docker compose ps smo
-
                 bash create-existing-artifact.sh
             """,
         ],
