@@ -122,7 +122,7 @@ def configure_smo_ip() -> None:
                 . .venv/bin/activate
 
                 export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                kubectl config use-context karmada-host
+                kubectl config use-context karmada-apiserver
                 # kubectl get services --all-namespaces
 
                 # this is the cluster NodePort ip:

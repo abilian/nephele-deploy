@@ -1,7 +1,7 @@
 """
 Minimal recipe to merge kube configs.
 
-pyinfra -y -v --user root ${SERVER_NAME} 8-merge-kube-configs.py
+pyinfra -y -v --user root ${SERVER_NAME} 4-merge-kube-configs.py
 """
 
 from pyinfra.operations import python, server

@@ -3,7 +3,7 @@ Minimal recipe to deploy kind kubernetes engine and tools on a ubuntu like distr
 
 assuming 0-setup-server.py has already been applied for base packages.
 
-pyinfra -y -vv --user root ${SERVER_NAME} 4-install-kubectl-karmada.py
+pyinfra -y -vv --user root ${SERVER_NAME} 3-install-kubectl-karmada.py
 
 Important fix:
 

@@ -31,7 +31,7 @@ from common import log_callback
 # *         karmada-apiserver   karmada-apiserver   karmada-apiserver
 #           karmada-host        kind-karmada-host   kind-karmada-host
 
-CLUSTER_NAME = "karmada-apiserver"
+CLUSTER_NAME = "karmada-host"
 KCONFIG = "/root/.kube/karmada-apiserver.config"
 # Define the Prometheus Operator version
 # VERSION = "v0.78.2"
@@ -100,7 +100,7 @@ def main() -> None:
     add_prometheus_repo()
     put_prometheus_config_file()
     install_kube_prometheus_stack_v3()
-    # install_crds_in_control_pane()
+    install_service_monitor_crds_in_api_server()
 
 
 def remove_prior_prometheus_cluster() -> None:
@@ -109,7 +109,7 @@ def remove_prior_prometheus_cluster() -> None:
         commands=[
             f"""
             export KUBECONFIG="{KCONFIG}"
-            kubectl config use-context karmada-apiserver
+            kubectl config use-context karmada-host
 
             helm uninstall prometheus -n monitoring
             """
@@ -126,7 +126,7 @@ def add_prometheus_repo() -> None:
         commands=[
             f"""
             export KUBECONFIG="{KCONFIG}"
-            kubectl config use-context karmada-apiserver
+            kubectl config use-context karmada-host
 
             helm repo add prometheus-community {REPO}
             helm repo update
@@ -159,26 +159,70 @@ def install_kube_prometheus_stack_v3():
     result = server.shell(
         # --version 75.18.1 \
         # --version 72.0.0 \
+        # prometheus/prometheus:v3.5.0
         name="Install kube prometheus stack",
         commands=[
             """
             export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-            kubectl config use-context karmada-apiserver
+            kubectl config use-context karmada-host
 
             helm install prometheus \
-            -n monitoring \
+            --create-namespace -n monitoring \
             prometheus-community/kube-prometheus-stack \
             --values /root/prom-values.yaml \
             --debug
 
+            echo "-------------------\nkubectl -n monitoring get pods:"
             kubectl -n monitoring get pods
+
+            echo "-------------------\nkubectl -n monitoring get svc:"
             kubectl -n monitoring get svc
+
+            echo "-------------------\nkubectl get crds | grep 'monitoring.coreos.com':"
+            kubectl get crds | grep 'monitoring.coreos.com'
             """
         ],
         _shell_executable="/bin/bash",
     )
     python.call(
         name="Show installed prometheus",
+        function=log_callback,
+        result=result,
+    )
+
+
+def install_service_monitor_crds_in_api_server() -> None:
+    # Base URL for the Prometheus Operator CRDs
+    BASE_URL = (
+        "https://raw.githubusercontent.com/prometheus-operator/"
+        "prometheus-operator/v0.84.1/example/prometheus-operator-crd"
+    )
+
+    result = server.shell(
+        name="Install monitor crds for karmada-apiserver",
+        commands=[
+            f"""
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context karmada-apiserver
+
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_alertmanagerconfigs.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_alertmanagers.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_podmonitors.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_probes.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_prometheusagents.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_prometheuses.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_prometheusrules.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_scrapeconfigs.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_servicemonitors.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_thanosrulers.yaml
+
+            kubectl create namespace monitoring || true
+            """
+        ],
+        _shell_executable="/bin/bash",
+    )
+    python.call(
+        name="Show installed monitor crds for karmada-apiserver",
         function=log_callback,
         result=result,
     )
