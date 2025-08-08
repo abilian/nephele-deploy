@@ -110,6 +110,116 @@ index 43f8ca1..74ecb24 100644
 +networks:
 +    kind:
 +        external: true
+diff --git a/examples/brussels-demo/image-compression-vo/values.yaml b/examples/brussels-demo/image-compression-vo/values.yaml
+index 4e73e5a..cbe4b96 100644
+--- a/examples/brussels-demo/image-compression-vo/values.yaml
++++ b/examples/brussels-demo/image-compression-vo/values.yaml
+@@ -1,31 +1,31 @@
+ voDescriptorOverwrite:
+-  catalogue: 9090
+-  bindingNB:
+-    ports:
+-      httpPort: 8080
+-  databaseConfig:
+-    timeseriesDB:
+-      influxDB: disabled
++    catalogue: 9090
++    bindingNB:
++        ports:
++            httpPort: 8080
++    databaseConfig:
++        timeseriesDB:
++            influxDB: disabled
+ 
+ voChartOverwrite:
+-  serviceAccount:
+-    create: false
+-    annotations: {}
+-    name: "vo"
+-  ingress:
+-    enabled: false
+-  resources:
+-    limits:
+-      cpu: "500m"
++    serviceAccount:
++        create: false
++        annotations: {}
++        name: 'vo'
++    ingress:
++        enabled: false
++    resources:
++        limits:
++            cpu: '500m'
+ 
+-  autoscaling:
+-    enabled: false
+-  serviceImportClusters: []
+-  clustersAffinity: ["cluster1-master"]
++    autoscaling:
++        enabled: false
++    serviceImportClusters: []
++    clustersAffinity: ['member1']
+ 
+-  service:
+-    type: NodePort
+-    catalogue:
+-      nodePort: 30000
+-    http:
+-      nodePort: 30001
++    service:
++        type: NodePort
++        catalogue:
++            nodePort: 30000
++        http:
++            nodePort: 30001
+diff --git a/examples/brussels-demo/image-detection/values.yaml b/examples/brussels-demo/image-detection/values.yaml
+index 18ed9b3..91d4cca 100644
+--- a/examples/brussels-demo/image-detection/values.yaml
++++ b/examples/brussels-demo/image-detection/values.yaml
+@@ -1,14 +1,14 @@
+ replicas: 1
+ 
+ clustersAffinity:
+-- cluster1-master
++    - member1
+ 
+ serviceImportClusters:
+-- netmode-cluster
++    - netmode-cluster
+ 
+ service:
+-  port: 8080
++    port: 8080
+ 
+ resources:
+-  limits:
+-    cpu: "1"
++    limits:
++        cpu: '1'
+diff --git a/examples/brussels-demo/noise-reduction/values.yaml b/examples/brussels-demo/noise-reduction/values.yaml
+index f26e4d5..e0a8146 100644
+--- a/examples/brussels-demo/noise-reduction/values.yaml
++++ b/examples/brussels-demo/noise-reduction/values.yaml
+@@ -1,14 +1,14 @@
+ replicas: 1
+ 
+ clustersAffinity:
+-- cluster1-master
++    - member1
+ 
+ serviceImportClusters:
+-- netmode-cluster2
++    - netmode-cluster2
+ 
+ service:
+-  port: 8080
++    port: 8080
+ 
+ resources:
+-  limits:
+-    cpu: "1"
++    limits:
++        cpu: '1'
 diff --git a/src/app.py b/src/app.py
 index a2d0f3c..fb6868d 100644
 --- a/src/app.py
@@ -369,9 +479,18 @@ index 6777d7f..ac8f7a8 100644
              db.session.add(cluster)
          db.session.commit()
 diff --git a/src/services/hdag/graph_service.py b/src/services/hdag/graph_service.py
-index e985018..e2da01d 100644
+index e985018..c4f610f 100644
 --- a/src/services/hdag/graph_service.py
 +++ b/src/services/hdag/graph_service.py
+@@ -4,7 +4,7 @@ import subprocess
+ import tempfile
+ import threading
+ from os import path, walk
+-
++import sys
+ import yaml
+ from flask import current_app
+ from werkzeug.exceptions import BadRequest, NotFound
 @@ -13,7 +13,12 @@ from models import db, Cluster, Graph, Service
  from utils.grafana_helper import GrafanaHelper
  from utils.karmada_helper import KarmadaHelper
@@ -386,8 +505,22 @@ index e985018..e2da01d 100644
  from utils.scaling import scaling_loop
  from utils.intent_translation import tranlsate_cpu, tranlsate_memory, tranlsate_storage
  
-@@ -38,24 +43,25 @@ def deploy_graph(project, graph_descriptor):
+@@ -22,6 +27,10 @@ background_scaling_threads = {}
+ stop_events = {}
+ 
+ 
++def debug(msg: str):
++    print(f"/////// {msg}", file=sys.stderr)
++
++
+ def fetch_project_graphs(project):
+     """Retrieves all the descriptors of a project"""
+ 
+@@ -36,26 +45,27 @@ def deploy_graph(project, graph_descriptor):
+     Instantiates an application graph by using Helm to
+     deploy each service's artifact.
      """
++    debug(f"in deploy_graph {project}")
  
      grafana_helper = GrafanaHelper(
 -        current_app.config['GRAFANA_HOST'], current_app.config['GRAFANA_USERNAME'],
@@ -406,8 +539,8 @@ index e985018..e2da01d 100644
      graph = db.session.query(Graph).filter_by(name=name).first()
      if graph is not None:
 -        raise BadRequest(f'Graph with name {name} already exists')
+-
 +        raise BadRequest(f"Graph with name {name} already exists")
- 
      graph = Graph(
          name=name,
          graph_descriptor=graph_descriptor,
@@ -419,7 +552,7 @@ index e985018..e2da01d 100644
      )
      db.session.add(graph)
      db.session.commit()
-@@ -63,22 +69,38 @@ def deploy_graph(project, graph_descriptor):
+@@ -63,79 +73,114 @@ def deploy_graph(project, graph_descriptor):
      background_scaling_threads[name] = [None, None]
      stop_events[name] = [threading.Event(), threading.Event()]
  
@@ -454,6 +587,10 @@ index e985018..e2da01d 100644
  
      service_placement = {}
 -    if not hdag_config['hdaGraphIntent']['useStaticPlacement']:
++    debug(f"cluster_list {cluster_list}")
++    debug(f"cluster_capacity_list {cluster_capacity_list}")
++    debug(f"cluster_acceleration_list {cluster_acceleration_list}")
++
 +    if not hdag_config["hdaGraphIntent"]["useStaticPlacement"]:
          placement = calculate_naive_placement(
 -            cluster_capacity_list, cluster_acceleration_list, cpu_limits, acceleration_list, replicas
@@ -465,9 +602,14 @@ index e985018..e2da01d 100644
          )
          graph.placement = placement
  
-@@ -89,53 +111,63 @@ def deploy_graph(project, graph_descriptor):
+         service_placement = convert_placement(placement, services, cluster_list)
+         cluster_placement = swap_placement(service_placement)
+         import_clusters = create_service_imports(services, service_placement)
+-
      svc_names = []
      for service in services:
++        debug(f"graph service {service}")
++
          alert = {}
 -        name = service['id']
 +        name = service["id"]
@@ -494,6 +636,7 @@ index e985018..e2da01d 100644
 -            events = deployment_trigger['event']['events']
 +            deployment_condition = deployment_trigger["event"]["condition"]
 +            events = deployment_trigger["event"]["events"]
++            debug(f"graph service events {events}")
              for event in events:
 -                sources = event['source']
 -                event_id = event['id']
@@ -514,6 +657,7 @@ index e985018..e2da01d 100644
 +                    event_id, prom_query, grace_period, description, name
 +                )
 +                prom_helper.update_alert_rules(alert, "add")
++            debug(f"graph service events loop done")
  
 -        cpu = tranlsate_cpu(service['deployment']['intent']['compute']['cpu'])
 -        memory = tranlsate_memory(service['deployment']['intent']['compute']['ram'])
@@ -543,13 +687,15 @@ index e985018..e2da01d 100644
  
 -            placement_dict['clustersAffinity'] = [service_placement[name]]
 -            placement_dict['serviceImportClusters'] = import_clusters[name]
+-
+-        status = 'Pending' if conditional_deployment else 'Deployed'
 +            placement_dict["clustersAffinity"] = [service_placement[name]]
 +            placement_dict["serviceImportClusters"] = import_clusters[name]
  
--        status = 'Pending' if conditional_deployment else 'Deployed'
 +        status = "Pending" if conditional_deployment else "Deployed"
- 
++        debug("before create_graph_service")
          svc_dashboard = grafana_helper.create_graph_service(name)
++        debug("before publish_dashboard")
          response = grafana_helper.publish_dashboard(svc_dashboard)
 -        grafana_url = f'{current_app.config["GRAFANA_HOST"]}{response["url"]}'
 +        grafana_url = f"{current_app.config['GRAFANA_HOST']}{response['url']}"
@@ -558,10 +704,11 @@ index e985018..e2da01d 100644
 +        cluster_affinity = (
 +            service_placement[name] if name in service_placement else None
 +        )
++        debug("before Service")
          svc = Service(
              name=name,
              values_overwrite=values_overwrite,
-@@ -150,22 +182,23 @@ def deploy_graph(project, graph_descriptor):
+@@ -150,24 +195,27 @@ def deploy_graph(project, graph_descriptor):
              storage=storage,
              gpu=gpu,
              grafana=grafana_url,
@@ -589,8 +736,12 @@ index e985018..e2da01d 100644
 +    if current_app.config["SCALING_ENABLED"]:
          spawn_scaling_processes(graph.name, cluster_placement)
  
++    debug(f"end of deploy_graph")
++
  
-@@ -182,11 +215,14 @@ def trigger_placement(name):
+ def fetch_graph(name):
+     """Retrieves the descriptor of an application graph."""
+@@ -182,11 +230,14 @@ def trigger_placement(name):
  
      graph = db.session.query(Graph).filter_by(name=name).first()
      if graph is None:
@@ -607,7 +758,7 @@ index e985018..e2da01d 100644
  
      services = [service.name for service in graph.services]
      cpu_limits = [service.cpu for service in graph.services]
-@@ -195,18 +231,26 @@ def trigger_placement(name):
+@@ -195,18 +246,26 @@ def trigger_placement(name):
  
      available_clusters = db.session.query(Cluster).filter_by(availability=True)
      cluster_list = [cluster.name for cluster in available_clusters]
@@ -639,7 +790,7 @@ index e985018..e2da01d 100644
  
      available_clusters = db.session.query(Cluster).filter_by(availability=True)
      cluster_list = [cluster.name for cluster in available_clusters]
-@@ -219,19 +263,25 @@ def trigger_placement(name):
+@@ -219,19 +278,25 @@ def trigger_placement(name):
          # Updating JSONB fields requires new dictionary creation
          values_overwrite = dict(service.values_overwrite)
          placement_dict = values_overwrite
@@ -674,7 +825,7 @@ index e985018..e2da01d 100644
          spawn_scaling_processes(name, cluster_placement)
  
  
-@@ -240,21 +290,21 @@ def start_graph(name):
+@@ -240,21 +305,21 @@ def start_graph(name):
  
      graph = db.session.query(Graph).filter_by(name=name).first()
      if graph is None:
@@ -704,7 +855,7 @@ index e985018..e2da01d 100644
              )
      db.session.commit()
  
-@@ -264,17 +314,17 @@ def stop_graph(name):
+@@ -264,17 +329,17 @@ def stop_graph(name):
  
      graph = db.session.query(Graph).filter_by(name=name).first()
      if graph is None:
@@ -727,7 +878,7 @@ index e985018..e2da01d 100644
      db.session.commit()
  
  
-@@ -283,10 +333,10 @@ def remove_graph(name):
+@@ -283,10 +348,10 @@ def remove_graph(name):
  
      graph = db.session.query(Graph).filter_by(name=name).first()
      if graph is None:
@@ -740,7 +891,7 @@ index e985018..e2da01d 100644
      #    stop_event.set()
  
      db.session.delete(graph)
-@@ -296,20 +346,26 @@ def remove_graph(name):
+@@ -296,20 +361,26 @@ def remove_graph(name):
  def deploy_conditional_service(data):
      """Deploys a service that is triggered when an alert has been fired."""
  
@@ -774,7 +925,7 @@ index e985018..e2da01d 100644
              db.session.commit()
  
  
-@@ -322,16 +378,14 @@ def create_service_imports(services, service_placement):
+@@ -322,16 +393,14 @@ def create_service_imports(services, service_placement):
      """
  
      # For each service a list of clusters to which its service will be imported
@@ -796,7 +947,7 @@ index e985018..e2da01d 100644
                  )
  
      return service_import_clusters
-@@ -344,19 +398,14 @@ def get_descriptor_from_artifact(project, artifact_ref):
+@@ -344,46 +413,44 @@ def get_descriptor_from_artifact(project, artifact_ref):
      """
  
      with tempfile.TemporaryDirectory() as dirpath:
@@ -822,14 +973,15 @@ index e985018..e2da01d 100644
                          data = yaml.safe_load(yaml_file)
                          return data
  
-@@ -364,26 +413,26 @@ def get_descriptor_from_artifact(project, artifact_ref):
+ 
  def helm_install_artifact(name, artifact_ref, values_overwrite, namespace, command):
      """Executes helm command (install/upgrade) for artifact."""
++    debug(f"in helm_install_artifact {name=} {values_overwrite=}")
  
 -    with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml') as values_file:
 +    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as values_file:
          yaml.dump(values_overwrite, values_file)
- 
+-
          subprocess_arguments = [
 -            'helm',
 +            "helm",
@@ -848,6 +1000,8 @@ index e985018..e2da01d 100644
 +            "--create-namespace",
 +            "--kubeconfig",
 +            current_app.config["KARMADA_KUBECONFIG"],
++            "--kube-context",
++            current_app.config["KARMADA_CONTEXT"],
          ]
 -        if current_app.config['INSECURE_REGISTRY']:
 -            subprocess_arguments.append('--plain-http')
@@ -857,10 +1011,11 @@ index e985018..e2da01d 100644
 +            subprocess_arguments.append("--plain-http")
 +        if command == "upgrade":
 +            subprocess_arguments.append("--reuse-values")
++        debug(f"in helm_install_artifact, args {subprocess_arguments=}")
          subprocess.run(subprocess_arguments)
  
  
-@@ -392,32 +441,54 @@ def helm_uninstall_graph(services, namespace):
+@@ -392,32 +459,54 @@ def helm_uninstall_graph(services, namespace):
  
      for service in services:
          if service.alert != {}:
@@ -933,7 +1088,7 @@ index e985018..e2da01d 100644
  
      for cluster_index, cluster in enumerate(cluster_list):
          if cluster not in cluster_placement.keys():
-@@ -441,11 +512,11 @@ def spawn_scaling_processes(graph_name, cluster_placement):
+@@ -441,11 +530,11 @@ def spawn_scaling_processes(graph_name, cluster_placement):
                  cluster_acceleration[cluster],
                  maximum_replicas,
                  managed_services,
@@ -950,7 +1105,7 @@ index e985018..e2da01d 100644
          )
          background_scaling_threads[cluster_index].daemon = True
          background_scaling_threads[cluster_index].start()
-@@ -453,15 +524,9 @@ def spawn_scaling_processes(graph_name, cluster_placement):
+@@ -453,15 +542,9 @@ def spawn_scaling_processes(graph_name, cluster_placement):
  
  def create_alert(event_id, prom_query, grace_period, description, name):
      return {
@@ -971,6 +1126,78 @@ index e985018..e2da01d 100644
 +        "for": f"{grace_period}",
 +        "labels": {"severity": "critical", "service": name},
      }
+diff --git a/src/utils/grafana_helper.py b/src/utils/grafana_helper.py
+index a5fd337..e2d86ef 100644
+--- a/src/utils/grafana_helper.py
++++ b/src/utils/grafana_helper.py
+@@ -1,42 +1,54 @@
++import sys
++
+ import requests
+ from requests.auth import HTTPBasicAuth
+ from werkzeug.exceptions import BadRequest
+ 
+-from utils.grafana_template import create_basic_dashboard, create_dashboard_variables,\
+-    create_panels_cluster, create_panels_service
++from utils.grafana_template import (
++    create_basic_dashboard,
++    create_dashboard_variables,
++    create_panels_cluster,
++    create_panels_service,
++)
++
++
++def debug(msg: str) -> None:
++    print(f"//// {msg}", file=sys.stderr)
+ 
+ 
+ class GrafanaHelper:
+-    def __init__(self, grafana_host, username='admin', password='prom-operator'):
++    def __init__(self, grafana_host, username="admin", password="prom-operator"):
+         self.grafana_host = grafana_host
+         self.auth = HTTPBasicAuth(username, password)
+-
++        debug(f"init GrafanaHelper with grafana_host {grafana_host!r}")
+ 
+     def publish_dashboard(self, dashboard_json):
+         """Pushes the specified Grafana dashboard."""
+ 
+-        url = f'{self.grafana_host}/api/dashboards/db'
++        url = f"{self.grafana_host}/api/dashboards/db"
++        debug(f"GrafanaHelper before request {url!r}")
+         res = requests.post(url, json=dashboard_json, auth=self.auth)
+         if res.status_code != 200:
+             raise BadRequest(res.json())
+         return res.json()
+ 
+-
+     def create_cluster_dashboard(self, cluster_name):
+         dashboard = create_basic_dashboard(cluster_name)
+-        dashboard['dashboard']['panels'] = create_panels_cluster(cluster_name)
++        dashboard["dashboard"]["panels"] = create_panels_cluster(cluster_name)
+         return dashboard
+ 
+-
+     def create_graph_dashboard(self, graph_name, service_names):
+         dashboard = create_basic_dashboard(graph_name)
+-        templated_service_name = 'service'
+-        dashboard['dashboard']['panels'] = create_panels_service(f'${templated_service_name}')
+-        dashboard['dashboard']['templating'] = create_dashboard_variables(templated_service_name, service_names)
++        templated_service_name = "service"
++        dashboard["dashboard"]["panels"] = create_panels_service(
++            f"${templated_service_name}"
++        )
++        dashboard["dashboard"]["templating"] = create_dashboard_variables(
++            templated_service_name, service_names
++        )
+         return dashboard
+ 
+-
+     def create_graph_service(self, service_name):
+         dashboard = create_basic_dashboard(service_name)
+-        dashboard['dashboard']['panels'] = create_panels_service(service_name)
++        dashboard["dashboard"]["panels"] = create_panels_service(service_name)
+         return dashboard
 diff --git a/src/utils/karmada_helper.py b/src/utils/karmada_helper.py
 index d8775e9..17d451a 100644
 --- a/src/utils/karmada_helper.py

@@ -32,32 +32,34 @@ from pyinfra.operations import python, server
 
 from common import log_callback
 
-# CLUSTER_NAME = "karmada-host"  # or member1 ?
 # CENTRAL_PROMETHEUS_IP_AND_PORT = "127.0.0.1:30093"
 
 # for nephele, nedd first the source: <CLUSTER_NAME> ans <CENTRAL_PROMETHEUS_IP_AND_PORT>
 
-KCONFIG = "/root/.kube/karmada-apiserver.config"
 PROMETHEUS_REPO = "https://prometheus-community.github.io/helm-charts"
 
 
 def main() -> None:
-    install_prometheus_member(1)
+    for mid in (1, 2):
+        install_prometheus_member(mid)
+        install_prometheus_crds_member(mid)
+        check_prometheus_member(mid)
 
 
 def member_context_cmd(mid: int) -> str:
     return f"""
-            export KUBECONFIG="{KCONFIG}"
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
             kubectl config use-context member{mid}
             """
 
 
 def nodeport(mid: int) -> int:
-    return 30000 + mid
+    return 30090 + mid
 
 
 def install_prometheus_member(mid: int):
-    member_ctx = member_context_cmd(1)
+    member_ctx = member_context_cmd(mid)
+    port = nodeport(mid)
 
     result = server.shell(
         name=f"Check member{mid} nodes",
@@ -78,7 +80,7 @@ def install_prometheus_member(mid: int):
     )
 
     server.shell(
-        name="Uninstall any prior prometheus monitoring",
+        name=f"Uninstall any prior prometheus monitoring for member{mid}",
         commands=[
             dedent(f"""\
             {member_ctx}
@@ -98,7 +100,7 @@ def install_prometheus_member(mid: int):
             dedent(f"""\
             {member_ctx}
 
-            kubectl create namespace monitoring
+            kubectl create namespace monitoring || true
             """)
         ],
         _shell_executable="/bin/bash",
@@ -119,14 +121,15 @@ def install_prometheus_member(mid: int):
         _get_pty=True,
     )
 
-    server.shell(
+    result = server.shell(
         name=f"Build Prometheus config for member{mid}",
         commands=[
             dedent(f"""\
-            export KUBECONFIG="{KCONFIG}"
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
             kubectl config use-context karmada-host
 
             central_ip=$(kubectl get nodes -o jsonpath='{{.items[0].status.addresses[?(@.type=="InternalIP")].address}}')
+
             #central_port=$(kubectl -n monitoring get svc prometheus-kube-prometheus-prometheus -o jsonpath='{{.spec.ports[0].nodePort}}')
             # always 30090
 
@@ -140,13 +143,20 @@ def install_prometheus_member(mid: int):
                 remoteWrite:
                   - url: "http://${{central_ip}}:30090/api/v1/write"
               service:
-                nodePort: 30090
+                nodePort: {port}
                 type: NodePort
             EOF
+
+            cat /root/prometheus-member{mid}-values.yaml
             """)
         ],
         _shell_executable="/bin/bash",
         _get_pty=True,
+    )
+    python.call(
+        name=f"Show member{mid} NodePort type",
+        function=log_callback,
+        result=result,
     )
 
     server.shell(
@@ -179,7 +189,8 @@ def install_prometheus_member(mid: int):
 
             kubectl patch svc prometheus-member{mid}-server -n monitoring \
             --type='json' \
-            -p='[{{"op":"replace","path":"/spec/type","value":"NodePort"}},{{"op":"replace","path":"/spec/ports/0/nodePort","value":30090}}]'
+            -p='[{{"op":"replace","path":"/spec/type","value":"NodePort"}},\
+            {{"op":"replace","path":"/spec/ports/0/nodePort","value":{port}}}]'
 
             kubectl get svc prometheus-member{mid}-server -n monitoring \
             -o yaml > /root/prometheus-svc-{mid}-backup-after.yaml
@@ -207,12 +218,52 @@ def install_prometheus_member(mid: int):
         result=result,
     )
 
+
+def install_prometheus_crds_member(mid: int) -> None:
+    member_ctx = member_context_cmd(mid)
+    # Base URL for the Prometheus Operator CRDs
+    BASE_URL = (
+        "https://raw.githubusercontent.com/prometheus-operator/"
+        "prometheus-operator/v0.84.1/example/prometheus-operator-crd"
+    )
+
+    result = server.shell(
+        name=f"Install monitor crds for member{mid}",
+        commands=[
+            f"""
+            {member_ctx}
+
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_alertmanagerconfigs.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_alertmanagers.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_podmonitors.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_probes.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_prometheusagents.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_prometheuses.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_prometheusrules.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_scrapeconfigs.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_servicemonitors.yaml
+            kubectl apply --server-side -f {BASE_URL}/monitoring.coreos.com_thanosrulers.yaml
+            """
+        ],
+        _shell_executable="/bin/bash",
+    )
+    python.call(
+        name=f"Show installed monitor crds for for member{mid}",
+        function=log_callback,
+        result=result,
+    )
+
+
+def check_prometheus_member(mid: int) -> None:
+    member_ctx = member_context_cmd(mid)
+    port = nodeport(mid)
+
     result = server.shell(
         name=f"Check member{mid} docker IP",
         commands=[
-            dedent("""\
-                docker inspect -f '{{.NetworkSettings.Networks.kind.IPAddress}}' \
-                member1-control-plane
+            dedent(f"""\
+                docker inspect -f '{{{{.NetworkSettings.Networks.kind.IPAddress}}}}' \
+                member{mid}-control-plane
             """)
         ],
     )
@@ -228,14 +279,14 @@ def install_prometheus_member(mid: int):
             dedent(f"""\
                 {member_ctx}
 
-                kubectl -n monitoring get svc prometheus-member1-server
+                kubectl -n monitoring get svc prometheus-member{mid}-server
             """)
         ],
         _shell_executable="/bin/bash",
         _get_pty=True,
     )
     python.call(
-        name=f"smoke test 3: show member{mid} services",
+        name=f"Smoke test 2: show member{mid} services",
         function=log_callback,
         result=result,
     )
@@ -243,14 +294,22 @@ def install_prometheus_member(mid: int):
     result = server.shell(
         name=f"Check member{mid} access from outer cluster",
         commands=[
-            dedent("""\
+            dedent(
+                """\
                 export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                kubectl config use-context karmada-host
-
-                member1_node_ip=$(kubectl -n monitoring get nodes -o \
+                """
+                f"""
+                kubectl config use-context member{mid}
+                """
+                """
+                member_node_ip=$(kubectl get nodes -o \
                 jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
 
-                url="http://${member1_node_ip}:30090"
+                """
+                f"""
+                url="http://${{member_node_ip}}:{port}"
+                """
+                """
 
                 max_try=30
                 interval=2
@@ -263,13 +322,14 @@ def install_prometheus_member(mid: int):
                   fi
                 done
                 curl -sS ${url} 2>&1 | head -n5
-            """)
+            """
+            )
         ],
         _shell_executable="/bin/bash",
         _get_pty=True,
     )
     python.call(
-        name=f"Smoke test 5: member{mid} access from outer cluster",
+        name=f"Smoke test 3: member{mid} access from outer cluster",
         function=log_callback,
         result=result,
     )
@@ -277,16 +337,16 @@ def install_prometheus_member(mid: int):
     result = server.shell(
         name=f"Check member{mid} access from inner cluster",
         commands=[
-            dedent("""\
+            dedent(f"""\
                 export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                kubectl config use-context member1
+                kubectl config use-context member{mid}
 
                 sleep 20
 
                 kubectl -n monitoring run -i --tty --rm debug \
                 --image=busybox --restart=Never \
                 -- sh -c 'i=0; while [ $i -lt 10 ]; do \
-                wget -qO- http://prometheus-member1-server:80 2>/dev/null \
+                wget -qO- http://prometheus-member{mid}-server:80 2>/dev/null \
                 && break; i=$((i+1)); sleep 2; done | head -n10'
             """)
         ],
@@ -294,7 +354,7 @@ def install_prometheus_member(mid: int):
         _get_pty=True,
     )
     python.call(
-        name=f"Smoke test 6: show member{mid} access from inner cluster",
+        name=f"Smoke test 4: show member{mid} access from inner cluster",
         function=log_callback,
         result=result,
     )

@@ -152,16 +152,5 @@ def find_kubernetes_pods() -> None:
             result=result,
         )
 
-    # result = server.shell(
-    #     name="Get graph list",
-    #     commands=[f"{SMO_CLI} graph list"],
-    #     _get_pty=True,
-    # )
-    # python.call(
-    #     name="Show graph list",
-    #     function=log_callback,
-    #     result=result,
-    # )
-
 
 main()

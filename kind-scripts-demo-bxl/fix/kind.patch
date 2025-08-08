@@ -110,6 +110,116 @@ index 43f8ca1..74ecb24 100644
 +networks:
 +    kind:
 +        external: true
+diff --git a/examples/brussels-demo/image-compression-vo/values.yaml b/examples/brussels-demo/image-compression-vo/values.yaml
+index 4e73e5a..cbe4b96 100644
+--- a/examples/brussels-demo/image-compression-vo/values.yaml
++++ b/examples/brussels-demo/image-compression-vo/values.yaml
+@@ -1,31 +1,31 @@
+ voDescriptorOverwrite:
+-  catalogue: 9090
+-  bindingNB:
+-    ports:
+-      httpPort: 8080
+-  databaseConfig:
+-    timeseriesDB:
+-      influxDB: disabled
++    catalogue: 9090
++    bindingNB:
++        ports:
++            httpPort: 8080
++    databaseConfig:
++        timeseriesDB:
++            influxDB: disabled
+ 
+ voChartOverwrite:
+-  serviceAccount:
+-    create: false
+-    annotations: {}
+-    name: "vo"
+-  ingress:
+-    enabled: false
+-  resources:
+-    limits:
+-      cpu: "500m"
++    serviceAccount:
++        create: false
++        annotations: {}
++        name: 'vo'
++    ingress:
++        enabled: false
++    resources:
++        limits:
++            cpu: '500m'
+ 
+-  autoscaling:
+-    enabled: false
+-  serviceImportClusters: []
+-  clustersAffinity: ["cluster1-master"]
++    autoscaling:
++        enabled: false
++    serviceImportClusters: []
++    clustersAffinity: ['member1']
+ 
+-  service:
+-    type: NodePort
+-    catalogue:
+-      nodePort: 30000
+-    http:
+-      nodePort: 30001
++    service:
++        type: NodePort
++        catalogue:
++            nodePort: 30000
++        http:
++            nodePort: 30001
+diff --git a/examples/brussels-demo/image-detection/values.yaml b/examples/brussels-demo/image-detection/values.yaml
+index 18ed9b3..91d4cca 100644
+--- a/examples/brussels-demo/image-detection/values.yaml
++++ b/examples/brussels-demo/image-detection/values.yaml
+@@ -1,14 +1,14 @@
+ replicas: 1
+ 
+ clustersAffinity:
+-- cluster1-master
++    - member1
+ 
+ serviceImportClusters:
+-- netmode-cluster
++    - netmode-cluster
+ 
+ service:
+-  port: 8080
++    port: 8080
+ 
+ resources:
+-  limits:
+-    cpu: "1"
++    limits:
++        cpu: '1'
+diff --git a/examples/brussels-demo/noise-reduction/values.yaml b/examples/brussels-demo/noise-reduction/values.yaml
+index f26e4d5..e0a8146 100644
+--- a/examples/brussels-demo/noise-reduction/values.yaml
++++ b/examples/brussels-demo/noise-reduction/values.yaml
+@@ -1,14 +1,14 @@
+ replicas: 1
+ 
+ clustersAffinity:
+-- cluster1-master
++    - member1
+ 
+ serviceImportClusters:
+-- netmode-cluster2
++    - netmode-cluster2
+ 
+ service:
+-  port: 8080
++    port: 8080
+ 
+ resources:
+-  limits:
+-    cpu: "1"
++    limits:
++        cpu: '1'
 diff --git a/src/app.py b/src/app.py
 index a2d0f3c..fb6868d 100644
 --- a/src/app.py
