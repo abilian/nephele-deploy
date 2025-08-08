@@ -124,7 +124,7 @@ def install_prometheus_member(mid: int):
         commands=[
             dedent(f"""\
             export KUBECONFIG="{KCONFIG}"
-            kubectl config use-context karmada-host
+            kubectl config use-context karmada-apiserver
 
             central_ip=$(kubectl get nodes -o jsonpath='{{.items[0].status.addresses[?(@.type=="InternalIP")].address}}')
             #central_port=$(kubectl -n monitoring get svc prometheus-kube-prometheus-prometheus -o jsonpath='{{.spec.ports[0].nodePort}}')
@@ -245,7 +245,7 @@ def install_prometheus_member(mid: int):
         commands=[
             dedent("""\
                 export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                kubectl config use-context karmada-host
+                kubectl config use-context karmada-apiserver
 
                 member1_node_ip=$(kubectl -n monitoring get nodes -o \
                 jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')

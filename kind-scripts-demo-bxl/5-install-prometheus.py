@@ -31,15 +31,15 @@ from common import log_callback
 # *         karmada-apiserver   karmada-apiserver   karmada-apiserver
 #           karmada-host        kind-karmada-host   kind-karmada-host
 
-CLUSTER_NAME = "karmada-host"
+CLUSTER_NAME = "karmada-apiserver"
 KCONFIG = "/root/.kube/karmada-apiserver.config"
 # Define the Prometheus Operator version
-VERSION = "v0.78.2"
+# VERSION = "v0.78.2"
 # Base URL for the Prometheus Operator CRDs
-BASE_URL = (
-    "https://raw.githubusercontent.com/prometheus-operator/"
-    f"prometheus-operator/{VERSION}/example/prometheus-operator-crd"
-)
+# BASE_URL = (
+#     "https://raw.githubusercontent.com/prometheus-operator/"
+#     f"prometheus-operator/{VERSION}/example/prometheus-operator-crd"
+# )
 
 # Kubeconfig file of the Karmada control plane
 # KUBECONFIG = "/root/.kube/karmada-apiserver.config"
@@ -109,7 +109,7 @@ def remove_prior_prometheus_cluster() -> None:
         commands=[
             f"""
             export KUBECONFIG="{KCONFIG}"
-            kubectl config use-context karmada-host
+            kubectl config use-context karmada-apiserver
 
             helm uninstall prometheus -n monitoring
             """
@@ -126,7 +126,7 @@ def add_prometheus_repo() -> None:
         commands=[
             f"""
             export KUBECONFIG="{KCONFIG}"
-            kubectl config use-context karmada-host
+            kubectl config use-context karmada-apiserver
 
             helm repo add prometheus-community {REPO}
             helm repo update
@@ -150,18 +150,26 @@ def install_kube_prometheus_stack_v3():
     # Set namespace to "monitoring", create it if it doesn't exist.
     # Set Grafana service type to NodePort for host access.
     # defaultRules.create is true by default, no need to explicitly set it unless disabling.
+    #
+    #  # kubectl get clusterrolebinding karmada-apiserver-cluster-admin -o yaml
+
+    # kubectl create clusterrolebinding karmada-apiserver-cluster-admin \
+    # --clusterrole=cluster-admin --user=karmada-apiserver
+
     result = server.shell(
+        # --version 75.18.1 \
+        # --version 72.0.0 \
         name="Install kube prometheus stack",
         commands=[
-            f"""
-            export KUBECONFIG="{KCONFIG}"
-            kubectl config use-context karmada-host
+            """
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context karmada-apiserver
 
             helm install prometheus \
-            --create-namespace -n monitoring \
+            -n monitoring \
             prometheus-community/kube-prometheus-stack \
-            --values /root/{PROM_VALUES_FILE} \
-            --atomic
+            --values /root/prom-values.yaml \
+            --debug
 
             kubectl -n monitoring get pods
             kubectl -n monitoring get svc
