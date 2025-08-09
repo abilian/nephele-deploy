@@ -1,4 +1,4 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 
 import subprocess
 import sys
@@ -230,7 +230,7 @@ def main():
 if __name__ == "__main__":
     if os.geteuid() != 0:
         print(
-            "This script needs to run with sudo to manage LXD profiles and containers.",
+            "This script needs to run as root or with sudo to manage LXD profiles and containers.",
             file=sys.stderr,
         )
         print("Please run as: sudo python3 create_member_clusters.py", file=sys.stderr)
