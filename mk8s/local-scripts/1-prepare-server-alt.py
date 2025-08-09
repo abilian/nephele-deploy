@@ -92,6 +92,7 @@ def install_kubectl():
 
 def install_karmada_tools():
     print(f"\n--- 5. Setting up Karmada CLI Tools (Version: {KARMADA_VERSION}) ---")
+    # ... (content unchanged)
     if not command_exists("curl"):
         print("Error: 'curl' is required.", file=sys.stderr)
         sys.exit(1)
@@ -123,21 +124,23 @@ def step_6_verify_and_repair_network_setup():
 
     # --- Check and Repair Firewall Rules ---
     print(f"--> Checking and ensuring required firewall rules exist...")
-    # Rule 1: Allow traffic FROM containers OUT
+    # Rule 1: Allow traffic passing THROUGH the host FROM containers
     rule1_check = ['iptables', '-C', 'FORWARD', '-i', LXD_BRIDGE_NAME, '-j', 'ACCEPT']
     if run_command(rule1_check, check=False).returncode != 0:
-        print("Firewall rule (input) missing. Adding it now...")
+        print("Firewall rule (FORWARD input) missing. Adding it now...")
         run_command(['iptables', '-A', 'FORWARD', '-i', LXD_BRIDGE_NAME, '-j', 'ACCEPT'])
-    else:
-        print("Firewall rule (input) already exists.")
 
-    # Rule 2: Allow traffic FROM host IN to containers
+    # Rule 2: Allow traffic passing THROUGH the host TO containers
     rule2_check = ['iptables', '-C', 'FORWARD', '-o', LXD_BRIDGE_NAME, '-j', 'ACCEPT']
     if run_command(rule2_check, check=False).returncode != 0:
-        print("Firewall rule (output) missing. Adding it now...")
+        print("Firewall rule (FORWARD output) missing. Adding it now...")
         run_command(['iptables', '-A', 'FORWARD', '-o', LXD_BRIDGE_NAME, '-j', 'ACCEPT'])
-    else:
-        print("Firewall rule (output) already exists.")
+
+    # CRITICAL NEW RULE: Allow traffic FROM the host itself TO the containers
+    rule3_check = ['iptables', '-C', 'INPUT', '-i', LXD_BRIDGE_NAME, '-j', 'ACCEPT']
+    if run_command(rule3_check, check=False).returncode != 0:
+        print("Firewall rule (INPUT) missing. Adding it now...")
+        run_command(['iptables', '-A', 'INPUT', '-i', LXD_BRIDGE_NAME, '-j', 'ACCEPT'])
 
     # --- Final Verification ---
     print("\n--> Final verification of network state:")
@@ -158,11 +161,10 @@ def step_6_verify_and_repair_network_setup():
             print(f"❌ Verification FAILED: Host does not have an IP address on the bridge.")
             all_checks_passed = False
     except (json.JSONDecodeError, IndexError):
-        print(f"❌ Verification FAILED: Could not retrieve IP address info for '{LXD_BRIDGE_NAME}'.")
         all_checks_passed = False
 
-    if run_command(rule1_check, check=False).returncode == 0 and run_command(rule2_check, check=False).returncode == 0:
-        print(f"✅ Verification PASSED: Both required iptables FORWARD rules are set.")
+    if all(run_command(cmd, check=False).returncode == 0 for cmd in [rule1_check, rule2_check, rule3_check]):
+        print(f"✅ Verification PASSED: All 3 required iptables rules are set.")
     else:
         print(f"❌ Verification FAILED: One or more required iptables rules are missing.")
         all_checks_passed = False

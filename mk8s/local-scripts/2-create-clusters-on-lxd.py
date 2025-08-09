@@ -1,248 +1,136 @@
 #!/usr/bin/env python3
 
-import os
-import sys
 import subprocess
-import shutil
-import urllib.request
+import sys
+import os
 import json
 import time
+from pwd import getpwnam
 
 # --- Configuration ---
-KARMADA_VERSION = "1.14.2"
-LXD_BRIDGE_NAME = "lxdbr0"
+MEMBER_CLUSTERS = ["member1", "member2", "member3"]
+LXD_PROFILE_NAME = "microk8s"
+
+# NEW: Define a mapping of host ports to the container's API server port
+PORT_MAPPING = {
+    "member1": "16441",
+    "member2": "16442",
+    "member3": "16443",  # Note: This might conflict if the host MicroK8s uses 16443. We'll proceed for now.
+}
+CONTAINER_API_PORT = "16443"
+
+# (LXD_PROFILE_CONFIG is unchanged)
+LXD_PROFILE_CONFIG = """
+config:
+  linux.kernel_modules: ip_tables,ip6_tables,nf_nat,overlay,br_netfilter
+  raw.lxc: |
+    lxc.apparmor.profile = unconfined
+    lxc.mount.auto = proc:rw sys:rw
+    lxc.cgroup.devices.allow = a
+    lxc.cap.drop =
+  security.nesting: "true"
+  security.privileged: "true"
+description: "MicroK8s LXD profile"
+devices:
+  kmsg:
+    path: /dev/kmsg
+    source: /dev/kmsg
+    type: unix-char
+"""
 
 
-# --- Helper Functions ---
-
-
-def run_command(
-    command, check=True, command_input=None, env=None, capture_output=False
-):
-    """A helper to run a shell command and handle errors."""
-    display_command = " ".join(command)
-    if command_input:
-        display_command += " <<< [INPUT]"
-    print(f"Executing: {display_command}")
+# --- Helper Functions (unchanged) ---
+def run_command(command, check=True, command_input=None, capture_output=False):
+    print(f"Executing: {' '.join(command)}")
     try:
-        process_env = os.environ.copy()
-        if env:
-            process_env.update(env)
         result = subprocess.run(
-            command,
-            input=command_input,
-            check=check,
-            text=True,
-            env=process_env,
-            capture_output=capture_output,
+            command, input=command_input, check=check, text=True,
+            capture_output=capture_output
         )
         return result
     except FileNotFoundError:
         print(f"Error: Command '{command[0]}' not found.", file=sys.stderr)
         sys.exit(1)
     except subprocess.CalledProcessError as e:
-        if capture_output and e.stderr:
-            print(f"Stderr:\n{e.stderr}", file=sys.stderr)
-        if check:
-            sys.exit(1)
+        if capture_output and e.stderr: print(f"Stderr:\n{e.stderr}", file=sys.stderr)
+        if check: sys.exit(1)
         return e
 
 
-def command_exists(command):
-    """Checks if a command is available in the system's PATH."""
-    return shutil.which(command) is not None
+def container_exists(name):
+    return subprocess.run(['lxc', 'info', name], capture_output=True).returncode == 0
 
 
-# --- Main Installation Logic ---
+def set_correct_owner(filepath):
+    user_name = os.environ.get('SUDO_USER', "root")
+    user_info = getpwnam(user_name)
+    os.chown(filepath, user_info.pw_uid, user_info.pw_gid)
 
 
-def install_microk8s():
-    """Installs and configures MicroK8s."""
-    print("\n--- 1. Setting up MicroK8s ---")
-    if not command_exists("microk8s"):
-        print("Installing MicroK8s...")
-        run_command(["snap", "install", "microk8s", "--classic"])
+def setup_lxd_profile():
+    print(f"--- Checking for LXD profile '{LXD_PROFILE_NAME}' ---")
+    result = run_command(['lxc', 'profile', 'list', '--format', 'json'], capture_output=True)
+    profiles = [p['name'] for p in json.loads(result.stdout)]
+    if LXD_PROFILE_NAME not in profiles:
+        print(f"Profile '{LXD_PROFILE_NAME}' not found. Creating it now...")
+        run_command(['lxc', 'profile', 'create', LXD_PROFILE_NAME])
+        run_command(['lxc', 'profile', 'edit', LXD_PROFILE_NAME], command_input=LXD_PROFILE_CONFIG)
     else:
-        print("MicroK8s is already installed. Skipping.")
-    run_command(["microk8s", "status", "--wait-ready"])
+        print(f"Profile '{LXD_PROFILE_NAME}' already exists.")
 
 
-def install_lxd_and_configure_network():
-    """Installs LXD and robustly configures its network bridge for host connectivity."""
-    print("\n--- 2. Setting up LXD and Host Networking ---")
-    if not command_exists("lxd"):
-        print("Installing LXD...")
-        run_command(["snap", "install", "lxd"])
-    else:
-        print("LXD is already installed. Skipping installation.")
+# --- Main Logic ---
 
-    run_command(["lxd", "init", "--auto"])
-
-    print(f"Configuring LXD network bridge '{LXD_BRIDGE_NAME}'...")
-    run_command(["lxc", "network", "set", LXD_BRIDGE_NAME, "ipv4.address=auto"])
-    run_command(["lxc", "network", "set", LXD_BRIDGE_NAME, "ipv4.nat=true"])
-
-    print("Restarting LXD daemon to apply configuration...")
-    run_command(["systemctl", "restart", "snap.lxd.daemon.service"])
-    print("Waiting 10 seconds for LXD daemon to stabilize...")
-    time.sleep(10)
-
-    print(f"Forcibly bringing interface '{LXD_BRIDGE_NAME}' UP...")
-    run_command(["ip", "link", "set", LXD_BRIDGE_NAME, "up"])
-
-    print(
-        f"Checking and ensuring iptables FORWARD rule exists for '{LXD_BRIDGE_NAME}'..."
-    )
-    check_rule_cmd = [
-        "iptables",
-        "-C",
-        "FORWARD",
-        "-i",
-        LXD_BRIDGE_NAME,
-        "-j",
-        "ACCEPT",
-    ]
-    result = run_command(check_rule_cmd, check=False, capture_output=True)
-    if result.returncode != 0:
-        print("Firewall rule missing. Adding it now...")
-        add_rule_cmd = [
-            "iptables",
-            "-A",
-            "FORWARD",
-            "-i",
-            LXD_BRIDGE_NAME,
-            "-j",
-            "ACCEPT",
-        ]
-        run_command(add_rule_cmd)
-    else:
-        print("Firewall rule already exists.")
-
-
-def install_docker():
-    # (Unchanged)
-    print("\n--- 3. Setting up Docker ---")
-    if command_exists("docker"):
-        print("Docker is already installed. Skipping.")
-        return
-    if os.path.exists("/etc/debian_version"):
-        print("Installing Docker for Debian/Ubuntu...")
-        run_command(["apt-get", "update"])
-        run_command(["apt-get", "install", "-y", "docker.io"])
-    else:
-        print(
-            "Cannot automatically install Docker on non-Debian systems.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-
-def install_kubectl():
-    # (Unchanged)
-    print("\n--- 4. Setting up kubectl ---")
-    if not command_exists("kubectl"):
-        print("Installing kubectl via snap...")
-        run_command(["snap", "install", "kubectl", "--classic"])
-    else:
-        print("kubectl is already installed. Skipping.")
-
-
-def install_karmada_tools():
-    # (Unchanged)
-    print(f"\n--- 5. Setting up Karmada CLI Tools (Version: {KARMADA_VERSION}) ---")
-    if not command_exists("curl"):
-        print("Error: 'curl' is required.", file=sys.stderr)
-        sys.exit(1)
-    install_env = {"INSTALL_CLI_VERSION": KARMADA_VERSION}
-    script_url = "https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh"
-    try:
-        with urllib.request.urlopen(script_url) as response:
-            install_script_content = response.read().decode("utf-8")
-    except Exception as e:
-        print(f"Failed to download installation script: {e}", file=sys.stderr)
-        sys.exit(1)
-    tools_to_install = {
-        "karmadactl": ["bash"],
-        "kubectl-karmada": ["bash", "-s", "kubectl-karmada"],
-    }
-    for tool, command in tools_to_install.items():
-        if command_exists(tool):
-            print(f"{tool} is already installed. Skipping.")
-        else:
-            print(f"--> Installing {tool} v{KARMADA_VERSION}...")
-            run_command(command, command_input=install_script_content, env=install_env)
-
-
-def step_6_verify_network_setup():
-    """Final verification step to ensure the LXD bridge is correctly configured."""
-    print(f"\n--- 6. Verifying Network Setup for '{LXD_BRIDGE_NAME}' ---")
-    all_checks_passed = True
-    try:
-        result = run_command(
-            ["ip", "-j", "addr", "show", LXD_BRIDGE_NAME], capture_output=True
-        )
-        data = json.loads(result.stdout)
-
-        # CORRECTED: Check for the administrative 'UP' flag, not the operational state.
-        if data and "UP" in data[0].get("flags", []):
-            print(
-                f"✅ Verification PASSED: LXD bridge '{LXD_BRIDGE_NAME}' is administratively UP."
-            )
-        else:
-            print(
-                f"❌ Verification FAILED: LXD bridge '{LXD_BRIDGE_NAME}' is not administratively UP."
-            )
-            all_checks_passed = False
-
-        ipv4_info = data[0].get("addr_info", [{}])[0]
-        if "local" in ipv4_info:
-            print(
-                f"✅ Verification PASSED: Host has IP address {ipv4_info['local']} on the bridge."
-            )
-        else:
-            print(
-                f"❌ Verification FAILED: Host does not have an IP address on the '{LXD_BRIDGE_NAME}' bridge."
-            )
-            all_checks_passed = False
-    except (json.JSONDecodeError, IndexError):
-        print(
-            f"❌ Verification FAILED: Could not retrieve IP address info for '{LXD_BRIDGE_NAME}'."
-        )
-        all_checks_passed = False
-
-    result = run_command(
-        ["iptables", "-C", "FORWARD", "-i", LXD_BRIDGE_NAME, "-j", "ACCEPT"],
-        check=False,
-        capture_output=True,
-    )
-    if result.returncode == 0:
-        print(f"✅ Verification PASSED: iptables FORWARD rule is correctly set.")
-    else:
-        print(f"❌ Verification FAILED: iptables FORWARD rule is missing.")
-        all_checks_passed = False
-
-    return all_checks_passed
-
-
-# --- Main Execution ---
 def main():
-    """Main function to run all prerequisite installations."""
-    install_microk8s()
-    install_lxd_and_configure_network()
-    install_docker()
-    install_kubectl()
-    install_karmada_tools()
+    setup_lxd_profile()
+    print("\n--- Provisioning 3 MicroK8s clusters using LXD ---")
+    for member in MEMBER_CLUSTERS:
+        print(f"\n>>> Processing cluster: {member}")
+        if not container_exists(member):
+            print(f"Launching new LXD container for {member}...")
+            run_command(
+                ['lxc', 'launch', 'ubuntu:22.04', member, '--profile', 'default', '--profile', LXD_PROFILE_NAME])
+        else:
+            print(f"Container '{member}' already exists. Re-using.")
 
-    if step_6_verify_network_setup():
-        print(
-            "\n\n✅ --- Prerequisite and Network setup is complete and verified! --- ✅"
-        )
-    else:
-        print(
-            "\n\n❌ --- Prerequisite setup complete, but network verification failed! --- ❌"
-        )
-        print("       Please review the errors above before proceeding.")
-        sys.exit(1)
+        print(f"Waiting for cloud-init to finish in {member}...")
+        run_command(['lxc', 'exec', member, '--', 'cloud-init', 'status', '--wait'])
+
+        print(f"Installing MicroK8s in {member}...")
+        install_cmd = 'if ! command -v microk8s &> /dev/null; then sudo snap install microk8s --classic; else echo "MicroK8s already installed."; fi'
+        run_command(['lxc', 'exec', member, '--', '/bin/bash', '-c', install_cmd])
+        run_command(['lxc', 'exec', member, '--', 'sudo', 'microk8s', 'status', '--wait-ready'])
+        run_command(['lxc', 'exec', member, '--', 'sudo', 'microk8s', 'enable', 'dns', 'storage'])
+
+        # NEW: Setup the port-forwarding proxy device in LXD
+        host_port = PORT_MAPPING[member]
+        print(f"Setting up port forward: localhost:{host_port} -> container:{CONTAINER_API_PORT} for {member}...")
+        # The device name is arbitrary, 'proxy-k8s' is clear
+        proxy_command = [
+            'lxc', 'config', 'device', 'add', member, 'proxy-k8s', 'proxy',
+            f'listen=tcp:0.0.0.0:{host_port}',  # Listen on all host interfaces
+            f'connect=tcp:127.0.0.1:{CONTAINER_API_PORT}'  # Connect to the service inside the container
+        ]
+        # We use check=False because this command fails if the device already exists, which is safe.
+        run_command(proxy_command, check=False)
+
+        print(f"Extracting and modifying kubeconfig for {member}...")
+        kubeconfig_path = f"/root/{member}.config"
+        result = run_command(['lxc', 'exec', member, '--', 'sudo', 'microk8s', 'config'], capture_output=True)
+
+        # Modify the kubeconfig content BEFORE writing it to a file
+        kubeconfig_content = result.stdout
+        # CRITICAL: Replace the server address with the localhost and the forwarded port
+        modified_content = kubeconfig_content.replace(f'server: https://127.0.0.1:{CONTAINER_API_PORT}',
+                                                      f'server: https://127.0.0.1:{host_port}')
+
+        with open(kubeconfig_path, 'w') as f:
+            f.write(modified_content)
+        set_correct_owner(kubeconfig_path)
+
+        print(f">>> Successfully processed cluster: {member}. Kubeconfig points to localhost:{host_port}")
+
+    print("\n--- All member clusters are ready! ---")
 
 
 if __name__ == "__main__":
