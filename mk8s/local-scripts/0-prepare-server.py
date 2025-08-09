@@ -4,16 +4,31 @@ import os
 import sys
 import subprocess
 import shutil
+import urllib.request
 
+# The desired version of Karmada tools to install is now hardcoded here.
+KARMADA_VERSION = "1.14.2"
 
 # --- Helper Functions ---
 
 
-def run_command(command, check=True):
-    """A helper to run a shell command and handle errors."""
-    print(f"Executing: {' '.join(command)}")
+def run_command(command, check=True, command_input=None, env=None):
+    """
+    A helper to run a shell command and handle errors, with optional input and environment variables.
+    """
+    display_command = " ".join(command)
+    if command_input:
+        display_command += " <<< [INPUT]"
+    print(f"Executing: {display_command}")
+
     try:
-        subprocess.run(command, check=check)
+        process_env = os.environ.copy()
+        if env:
+            process_env.update(env)
+
+        subprocess.run(
+            command, input=command_input, check=check, text=True, env=process_env
+        )
     except FileNotFoundError:
         print(
             f"Error: Command '{command[0]}' not found. Is it in your PATH?",
@@ -38,11 +53,10 @@ def install_microk8s():
     """Installs and configures MicroK8s."""
     print("\n--- 1. Setting up MicroK8s ---")
     if command_exists("microk8s"):
-        print("MicroK8s is already installed. Skipping installation.")
+        print("MicroK8s is already installed. Skipping.")
     else:
         print("Installing MicroK8s...")
         run_command(["snap", "install", "microk8s", "--classic"])
-
     run_command(["microk8s", "status", "--wait-ready"])
 
 
@@ -50,13 +64,11 @@ def install_lxd():
     """Installs and configures LXD."""
     print("\n--- 2. Setting up LXD ---")
     if command_exists("lxd"):
-        print("LXD is already installed. Skipping installation.")
+        print("LXD is already installed. Skipping.")
     else:
         print("Installing LXD...")
         run_command(["snap", "install", "lxd"])
-
     print("Initializing LXD with default settings...")
-    # This command is idempotent and safe to run again.
     run_command(["lxd", "init", "--auto"])
 
 
@@ -64,68 +76,69 @@ def install_docker():
     """Installs Docker Engine."""
     print("\n--- 3. Setting up Docker ---")
     if command_exists("docker"):
-        print("Docker is already installed. Skipping installation.")
+        print("Docker is already installed. Skipping.")
         return
-
-    # Check if the system is Debian-based
     if os.path.exists("/etc/debian_version"):
         print("Installing Docker for Debian/Ubuntu...")
         run_command(["apt-get", "update"])
         run_command(["apt-get", "install", "-y", "docker.io"])
     else:
         print(
-            "This script cannot automatically install Docker on non-Debian systems.",
-            file=sys.stderr,
-        )
-        print("Please install Docker manually and re-run this script.", file=sys.stderr)
-        sys.exit(1)
-
-
-def install_karmadactl():
-    """Installs Karmada's CLI tool, karmadactl."""
-    print("\n--- 4. Setting up karmadactl ---")
-    if command_exists("karmadactl"):
-        print("karmadactl is already installed. Skipping installation.")
-        return
-
-    if not command_exists("go"):
-        print("Go programming language is not installed.", file=sys.stderr)
-        print(
-            "Please install Go (e.g., 'apt-get install golang-go') and ensure it's in your PATH.",
+            "Cannot automatically install Docker on non-Debian systems. Please install manually.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    karmada_path = input(
-        "Please enter the full path to your Karmada source code directory: "
-    ).strip()
-    if not os.path.isdir(karmada_path) or not os.path.exists(
-        os.path.join(karmada_path, "cmd/karmadactl")
-    ):
+
+def install_kubectl():
+    """Installs the kubectl command-line tool."""
+    print("\n--- 4. Setting up kubectl ---")
+    if command_exists("kubectl"):
+        print("kubectl is already installed. Skipping.")
+    else:
+        print("Installing kubectl via snap...")
+        run_command(["snap", "install", "kubectl", "--classic"])
+
+
+def install_karmada_tools():
+    """Installs Karmada CLI tools for a specific version using the official one-click install script."""
+    print(f"\n--- 5. Setting up Karmada CLI Tools (Version: {KARMADA_VERSION}) ---")
+
+    if not command_exists("curl"):
         print(
-            f"Error: Path '{karmada_path}' does not appear to be a valid Karmada source directory.",
+            "Error: 'curl' is required to download the installation script.",
+            file=sys.stderr,
+        )
+        print(
+            "Please install it (e.g., 'apt-get install curl') and re-run.",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    print(f"Changing directory to '{karmada_path}' to install karmadactl...")
-    original_dir = os.getcwd()
-    os.chdir(karmada_path)
+    # Set the environment variable for the installation script to use the hardcoded version.
+    install_env = {"INSTALL_CLI_VERSION": KARMADA_VERSION}
 
-    # Run 'go install' directly as the current user (root).
-    run_command(["go", "install", "./cmd/karmadactl"])
+    # Fetch the installation script from the master branch.
+    script_url = "https://raw.githubusercontent.com/karmada-io/karmada/master/hack/install-cli.sh"
+    try:
+        print(f"Downloading installation script from {script_url}...")
+        with urllib.request.urlopen(script_url) as response:
+            install_script_content = response.read().decode("utf-8")
+    except Exception as e:
+        print(f"Failed to download installation script: {e}", file=sys.stderr)
+        sys.exit(1)
 
-    os.chdir(original_dir)
-    print("karmadactl installation command executed.")
+    tools_to_install = {
+        "karmadactl": ["bash"],
+        "kubectl-karmada": ["bash", "-s", "kubectl-karmada"],
+    }
 
-    # Check if root's GOPATH/bin is in the path and warn if not
-    go_bin_path = "/root/go/bin"
-    if go_bin_path not in os.environ["PATH"]:
-        print(f"\nWARNING: '{go_bin_path}' is not in your PATH.", file=sys.stderr)
-        print(
-            "You may need to add 'export PATH=$PATH:/root/go/bin' to your /root/.bashrc file and re-login.",
-            file=sys.stderr,
-        )
+    for tool, command in tools_to_install.items():
+        if command_exists(tool):
+            print(f"{tool} is already installed. Skipping.")
+        else:
+            print(f"--> Installing {tool} v{KARMADA_VERSION}...")
+            run_command(command, command_input=install_script_content, env=install_env)
 
 
 def main():
@@ -133,20 +146,20 @@ def main():
     install_microk8s()
     install_lxd()
     install_docker()
-    install_karmadactl()
+    install_kubectl()
+    install_karmada_tools()
 
     print("\n\n✅ --- Prerequisite setup is complete! --- ✅")
     print(
-        "You can now proceed with the 'create-member-clusters.py' and 'setup-karmada-on-microk8s.py' scripts."
+        "You can now proceed with the 'create-member-clusters.py' "
+        "and 'setup-karmada-on-microk8s.py' scripts."
     )
 
 
 if __name__ == "__main__":
-    # Ensure the script is run as root
     if os.geteuid() != 0:
         print(
-            "This script is designed to be run directly by the 'root' user.",
-            file=sys.stderr,
+            "This script must be run as the 'root' user or with sudo.", file=sys.stderr
         )
         sys.exit(1)
     main()
