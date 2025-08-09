@@ -1,5 +1,5 @@
 deploy-mk8s-demo0:
-	pyinfra -y --user root \
+	pyinfra -vvv -y --user root \
 		_common/inventory.py \
 		_common/0-setup-server.py \
 		_common/2-install-microk8s.py \
@@ -9,7 +9,7 @@ deploy-mk8s-demo0:
 		demo0-hello-world/12-deploy-demo-hello-world.py
 
 deploy-mk8s-demo1:
-	pyinfra -y --user root \
+	pyinfra -vvv -y --user root \
 		_common/inventory.py \
 		_common/0-setup-server.py \
 		_common/2-install-microk8s.py \
@@ -18,7 +18,7 @@ deploy-mk8s-demo1:
 		demo1-nginx/13-deploy-nginx.py
 
 deploy-mk8s-demo2:
-	pyinfra -y --user root \
+	pyinfra -vvv -y --user root \
 		_common/inventory.py \
 		_common/0-setup-server.py \
 		_common/2-install-microk8s.py \
@@ -27,3 +27,8 @@ deploy-mk8s-demo2:
 		demo2-bxl/12-install-bxl-demo.py
 
 .PHONY: deploy-mk8s-demo0 deploy-mk8s-demo1 deploy-mk8s-demo2
+
+
+## Temp hack
+push-local-scripts:
+	watchfiles "rsync -e ssh -avz --delete ./local-scripts/ root@${SERVER_NAME}:/root/local-scripts/" .
