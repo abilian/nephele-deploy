@@ -19,30 +19,24 @@ def print_color(color, message):
 
 
 def run_command(
-    command, check=True, capture_output=False, command_input=None, text=True, env=None
+    command, check=True, command_input=None, env=None, capture_output=False
 ):
-    """
-    A comprehensive helper to run a shell command and handle errors.
-    It combines the functionality from all scripts.
-    """
+    """A comprehensive helper to run a shell command and handle errors."""
     display_command = " ".join(command)
     if command_input:
         display_command += " <<< [INPUT]"
-
     print_color(colors.BLUE, f"--> Executing: {display_command}")
-
     try:
         process_env = os.environ.copy()
         if env:
             process_env.update(env)
-
         result = subprocess.run(
             command,
             input=command_input,
             check=check,
-            capture_output=capture_output,
-            text=text,
+            text=True,
             env=process_env,
+            capture_output=capture_output,
         )
         return result
     except FileNotFoundError:
@@ -51,13 +45,14 @@ def run_command(
         )
         sys.exit(1)
     except subprocess.CalledProcessError as e:
-        print_color(colors.RED, f"FATAL: Command failed: {' '.join(command)}")
-        print_color(colors.RED, f"Return code: {e.returncode}")
-        if e.stdout:
-            print(f"Stdout:\n{e.stdout}")
-        if e.stderr:
-            print(f"Stderr:\n{e.stderr}")
-        sys.exit(1)
+        if capture_output and e.stderr:
+            print_color(colors.RED, f"Stderr:\n{e.stderr}")
+        if check:
+            print_color(
+                colors.RED, f"FATAL: Command failed with return code {e.returncode}."
+            )
+            sys.exit(1)
+        return e
 
 
 def command_exists(command):
@@ -68,8 +63,5 @@ def command_exists(command):
 def check_root_privileges(script_name="This script"):
     """Checks for root privileges and exits if not found."""
     if os.geteuid() != 0:
-        print_color(
-            colors.RED,
-            f"FATAL: {script_name} must be run as the 'root' user or with sudo.",
-        )
+        print_color(colors.RED, f"FATAL: {script_name} must be run as the 'root' user.")
         sys.exit(1)
