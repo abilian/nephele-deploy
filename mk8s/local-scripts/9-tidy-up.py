@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 
+"""Here's what this script does:
+
+1. **Checks for root privileges**: Ensures the script is run with sufficient permissions.
+2. **Runs the official deinit command**: Attempts to gracefully deinitialize Karmada using `karmadactl`.
+3. **Forcefully deletes the Karmada namespace**: Removes all components in the Karmada namespace.
+4. **Finds and deletes all Karmada CRDs**: Cleans up any remaining Custom Resource Definitions related to Karmada.
+5. **Destroys member clusters**: Stops and deletes all member clusters defined in the configuration.
+6. **Cleans up local kubeconfig files**: Removes any kubeconfig files related to member clusters.
+7. **Cleans up the LXD profile**: Deletes the LXD profile used for member clusters.
+8. **Disables the host MicroK8s registry**: Cleans up the local registry setup.
+"""
+
 import os
 import glob
 

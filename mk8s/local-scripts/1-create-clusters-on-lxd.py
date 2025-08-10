@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
 
+"""Here's what this script does:
+
+1. **Checks for root privileges**: Ensures the script is run with sufficient permissions.
+2. **Ensures the LXD profile for MicroK8s exists**: Creates or updates the LXD profile with necessary configurations.
+3. **Provisions LXD containers for each member cluster**: Launches new containers or re-uses existing ones.
+4. **Installs MicroK8s and enables addons**: Installs MicroK8s in each container and enables necessary addons like DNS and storage.
+5. **Sets up port forwarding**: Configures LXD to forward ports from the host to the container for API access.
+6. **Generates kubeconfig files**: Modifies the kubeconfig files to point to the correct API server addresses.
+7. **Performs health checks**: Ensures each cluster is accessible and ready by checking the API server connection.
+"""
+
 import json
 import os
 import sys

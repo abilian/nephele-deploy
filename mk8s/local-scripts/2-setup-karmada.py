@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+"""Here's what this script does:
+
+1. **Runs pre-flight checks**: Ensures all required kubeconfigs for member clusters are present.
+2. **Prepares the host MicroK8s instance**: Enables necessary addons like DNS, storage, and registry.
+3. **Pushes required images to the local registry**: Pulls images from remote sources and pushes them to the local MicroK8s registry.
+4. **Deploys Karmada control plane**: Initializes Karmada using the local registry images.
+5. **Waits for Karmada API to become available**: Ensures the Karmada control plane is fully operational.
+6. **Joins member clusters**: Registers each member cluster with the Karmada control plane, ensuring they are ready and healthy.
+"""
+
 import json
 import os
 import sys
@@ -17,6 +27,19 @@ from config import (
     K8S_IMAGES,
     CONFIG_FILES_DIR,
 )
+
+
+def main():
+    check_root_privileges("4-setup-karmada-on-mk8s.py")
+    run_preflight_checks()
+    step_1_prepare_host_cluster()
+    step_2_push_images_to_local_registry()
+    step_3_deploy_and_wait_for_karmada_control_plane()
+    step_4_join_member_clusters()
+
+    print_color(
+        colors.GREEN, "\n\n✅ --- Karmada setup on MicroK8s is complete! --- ✅"
+    )
 
 
 def run_preflight_checks():
@@ -156,13 +179,11 @@ def step_3_deploy_and_wait_for_karmada_control_plane():
 def step_4_join_member_clusters():
     """
     Step 4: Joins member clusters, ensuring a consistent and ready state for all.
-    This version uses a simpler, more robust logic that avoids race conditions.
     """
     print("\n--- 4. Joining member clusters to the control plane ---")
     for member in MEMBER_CLUSTERS:
         print_color(colors.YELLOW, f"--> Processing cluster: {member}")
 
-        # Check the status of the cluster.
         check_join_cmd = ["karmadactl", "get", "cluster", member, "-o", "json"]
         result = run_command(
             check_join_cmd,
@@ -186,7 +207,6 @@ def step_4_join_member_clusters():
             except (json.JSONDecodeError, KeyError):
                 pass
 
-        # If the cluster is already present and healthy, we can skip it.
         if cluster_exists and cluster_ready:
             print_color(
                 colors.GREEN,
@@ -194,8 +214,6 @@ def step_4_join_member_clusters():
             )
             continue
 
-        # For all other cases (not existing, or existing but not ready), run the full join sequence.
-        # The 'join' command will create or update the cluster object as needed.
         member_config_path = os.path.join(CONFIG_FILES_DIR, f"{member}.config")
 
         print(
@@ -215,7 +233,7 @@ def step_4_join_member_clusters():
             "karmadactl",
             "token",
             "create",
-            "--karmada-kubeconfig",
+            "--kubeconfig",
             KARMADA_KUBECONFIG,
             "--print-register-command",
         ]
@@ -240,19 +258,6 @@ def step_4_join_member_clusters():
         run_command(register_command_list)
 
     print("All member clusters have been joined and configured.")
-
-
-def main():
-    check_root_privileges("4-setup-karmada-on-mk8s.py")
-    run_preflight_checks()
-    step_1_prepare_host_cluster()
-    step_2_push_images_to_local_registry()
-    step_3_deploy_and_wait_for_karmada_control_plane()
-    step_4_join_member_clusters()
-
-    print_color(
-        colors.GREEN, "\n\n✅ --- Karmada setup on MicroK8s is complete! --- ✅"
-    )
 
 
 if __name__ == "__main__":

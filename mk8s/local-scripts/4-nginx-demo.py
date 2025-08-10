@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+"""Here's what this script does:
+
+1. **Checks for root privileges**: Ensures the script is run with sufficient permissions.
+2. **Deploys an Nginx application across member clusters**: Creates a Deployment and Service in the Karmada control plane.
+3. **Creates PropagationPolicies**: Ensures the Deployment and Service are propagated to all member clusters.
+4. **Verifies pod readiness**: Waits for the Nginx pods to be Running on all member clusters.
+5. **Finds the NodePort**: Retrieves the NodePort assigned to the Nginx Service.
+6. **Displays access URLs**: Provides curl commands to access the Nginx welcome page from the host machine.
+"""
+
 import os
 import sys
 import time
