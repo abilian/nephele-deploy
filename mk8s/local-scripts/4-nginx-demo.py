@@ -1,20 +1,12 @@
 #!/usr/bin/env python3
 
-import os
 import json
+import os
 import sys
-import time
 import tempfile
-import argparse
+import time
 
-# Import shared configuration and helpers
 from common import run_command, check_root_privileges, print_color, colors
-from config import (
-    MEMBER_CLUSTERS,
-    KARMADA_NAMESPACE,
-    KARMADA_KUBECONFIG,
-    CONFIG_FILES_DIR,
-)
 
 # Define which clusters to test deployment on
 MEMBER_CLUSTERS_TO_DEPLOY = ["member1", "member2"]
@@ -40,16 +32,33 @@ def check_dependencies():
     print_color(colors.GREEN, "All dependencies found.")
 
 
+from config import (
+    MEMBER_CLUSTERS,
+    KARMADA_NAMESPACE,
+    KARMADA_KUBECONFIG,
+    CONFIG_FILES_DIR,
+    HOST_KUBECONFIG,
+)
+
+
 def check_control_plane_health():
+    """
+    Level 1: Verifies all Karmada control plane pods are Running and Ready
+    by connecting to the HOST cluster where they are deployed.
+    """
     print_color(
         colors.YELLOW, "\n--- Level 1: Checking Karmada Control Plane Health ---"
     )
-    env = {"KUBECONFIG": KARMADA_KUBECONFIG}
+
+    
+    env = {"KUBECONFIG": HOST_KUBECONFIG}
+
     result = run_command(
         ["kubectl", "get", "pods", "-n", KARMADA_NAMESPACE, "-o", "json"],
         capture_output=True,
         env=env,
     )
+
     all_pods_ready = True
     pods_data = json.loads(result.stdout)
     if not pods_data.get("items"):
@@ -57,6 +66,7 @@ def check_control_plane_health():
             colors.RED, f"❌ FAILED: No pods found in namespace '{KARMADA_NAMESPACE}'."
         )
         return False
+
     for pod in pods_data["items"]:
         pod_name, pod_status = pod["metadata"]["name"], pod["status"]["phase"]
         if pod_status != "Running" or not all(
@@ -69,8 +79,10 @@ def check_control_plane_health():
             all_pods_ready = False
         else:
             print_color(colors.GREEN, f"  - Pod '{pod_name}' is Running and Ready.")
+
     if all_pods_ready:
         print_color(colors.GREEN, "✅ SUCCESS: All control plane pods are healthy.")
+
     return all_pods_ready
 
 
