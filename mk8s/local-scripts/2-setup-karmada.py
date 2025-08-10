@@ -215,7 +215,7 @@ def step_4_join_member_clusters():
         run_command(join_command, env={"KUBECONFIG": KARMADA_KUBECONFIG})
 
         print(f"    - Creating bootstrap token for agent deployment...")
-        
+
         token_create_cmd = ["karmadactl", "token", "create", "--print-register-command"]
         result = run_command(
             token_create_cmd,
