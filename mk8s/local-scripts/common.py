@@ -1,3 +1,5 @@
+# FILE: common.py
+
 import os
 import sys
 import subprocess
@@ -26,10 +28,12 @@ def run_command(
     if command_input:
         display_command += " <<< [INPUT]"
     print_color(colors.BLUE, f"--> Executing: {display_command}")
+
     try:
         process_env = os.environ.copy()
         if env:
             process_env.update(env)
+
         result = subprocess.run(
             command,
             input=command_input,
