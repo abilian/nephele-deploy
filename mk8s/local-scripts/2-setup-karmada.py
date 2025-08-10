@@ -156,6 +156,7 @@ def step_3_deploy_and_wait_for_karmada_control_plane():
 def step_4_join_member_clusters():
     """
     Step 4: Joins member clusters, ensuring a consistent and ready state for all.
+    This version uses a simpler, more robust logic that avoids race conditions.
     """
     print("\n--- 4. Joining member clusters to the control plane ---")
     for member in MEMBER_CLUSTERS:
@@ -185,26 +186,21 @@ def step_4_join_member_clusters():
             except (json.JSONDecodeError, KeyError):
                 pass
 
-        # If the cluster exists but is not ready, unjoin it first to ensure a clean state.
-        if cluster_exists and not cluster_ready:
-            print_color(
-                colors.YELLOW,
-                f"Cluster '{member}' exists but is not Ready. Unjoining to reset...",
-            )
-            unjoin_cmd = ["karmadactl", "unjoin", member]
-            run_command(unjoin_cmd, env={"KUBECONFIG": KARMADA_KUBECONFIG})
-            cluster_exists = False  # Mark for re-joining
-
+        # If the cluster is already present and healthy, we can skip it.
         if cluster_exists and cluster_ready:
             print_color(
                 colors.GREEN,
-                f"Cluster '{member}' is already registered and Ready. Skipping join.",
+                f"Cluster '{member}' is already registered and Ready. Skipping.",
             )
             continue
 
+        # For all other cases (not existing, or existing but not ready), run the full join sequence.
+        # The 'join' command will create or update the cluster object as needed.
         member_config_path = os.path.join(CONFIG_FILES_DIR, f"{member}.config")
 
-        print(f"    - Registering cluster object for '{member}'...")
+        print(
+            f"    - Ensuring cluster object for '{member}' is present and up-to-date..."
+        )
         join_command = [
             "karmadactl",
             "join",
@@ -215,20 +211,23 @@ def step_4_join_member_clusters():
         run_command(join_command, env={"KUBECONFIG": KARMADA_KUBECONFIG})
 
         print(f"    - Creating bootstrap token for agent deployment...")
-
-        token_create_cmd = ["karmadactl", "token", "create", "--print-register-command"]
-        result = run_command(
-            token_create_cmd,
-            env={"KUBECONFIG": KARMADA_KUBECONFIG},
-            capture_output=True,
-        )
+        token_create_cmd = [
+            "karmadactl",
+            "token",
+            "create",
+            "--karmada-kubeconfig",
+            KARMADA_KUBECONFIG,
+            "--print-register-command",
+        ]
+        result = run_command(token_create_cmd, capture_output=True)
         register_command_str = result.stdout.strip()
 
-        print(f"    - Deploying karmada-agent to '{member}'...")
+        print(
+            f"    - Deploying/updating karmada-agent on '{member}' using the token..."
+        )
         register_command_list = register_command_str.split()
         register_command_list.extend(
             [
-                # We must explicitly name the cluster we are registering the agent for.
                 "--cluster-name",
                 member,
                 "--cluster-kubeconfig",
