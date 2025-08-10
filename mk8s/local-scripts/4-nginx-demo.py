@@ -1,138 +1,26 @@
 #!/usr/bin/env python3
 
-import json
 import os
 import sys
-import tempfile
 import time
+import json
+import tempfile
 
+# Import shared configuration and helpers
 from common import run_command, check_root_privileges, print_color, colors
+from config import MEMBER_CLUSTERS, KARMADA_KUBECONFIG, CONFIG_FILES_DIR, PORT_MAPPING
 
-# Define which clusters to test deployment on
-MEMBER_CLUSTERS_TO_DEPLOY = ["member1", "member2"]
-MEMBER_CLUSTER_TO_AVOID = "member3"
+# --- Manifests for the Nginx Demo ---
 
-
-def check_dependencies():
-    print("--- Checking for required tools and files ---")
-    if not os.path.exists(KARMADA_KUBECONFIG):
-        print_color(
-            colors.RED,
-            f"FATAL: Karmada kubeconfig not found at '{KARMADA_KUBECONFIG}'.",
-        )
-        sys.exit(1)
-    for member in MEMBER_CLUSTERS:
-        config_path = os.path.join(CONFIG_FILES_DIR, f"{member}.config")
-        if not os.path.exists(config_path):
-            print_color(
-                colors.RED,
-                f"FATAL: Kubeconfig for '{member}' not found at '{config_path}'.",
-            )
-            sys.exit(1)
-    print_color(colors.GREEN, "All dependencies found.")
-
-
-from config import (
-    MEMBER_CLUSTERS,
-    KARMADA_NAMESPACE,
-    KARMADA_KUBECONFIG,
-    CONFIG_FILES_DIR,
-    HOST_KUBECONFIG,
-)
-
-
-def check_control_plane_health():
-    """
-    Level 1: Verifies all Karmada control plane pods are Running and Ready
-    by connecting to the HOST cluster where they are deployed.
-    """
-    print_color(
-        colors.YELLOW, "\n--- Level 1: Checking Karmada Control Plane Health ---"
-    )
-
-    
-    env = {"KUBECONFIG": HOST_KUBECONFIG}
-
-    result = run_command(
-        ["kubectl", "get", "pods", "-n", KARMADA_NAMESPACE, "-o", "json"],
-        capture_output=True,
-        env=env,
-    )
-
-    all_pods_ready = True
-    pods_data = json.loads(result.stdout)
-    if not pods_data.get("items"):
-        print_color(
-            colors.RED, f"❌ FAILED: No pods found in namespace '{KARMADA_NAMESPACE}'."
-        )
-        return False
-
-    for pod in pods_data["items"]:
-        pod_name, pod_status = pod["metadata"]["name"], pod["status"]["phase"]
-        if pod_status != "Running" or not all(
-            cs["ready"] for cs in pod["status"].get("containerStatuses", [])
-        ):
-            print_color(
-                colors.RED,
-                f"  - Pod '{pod_name}' is not fully ready. Status: {pod_status}",
-            )
-            all_pods_ready = False
-        else:
-            print_color(colors.GREEN, f"  - Pod '{pod_name}' is Running and Ready.")
-
-    if all_pods_ready:
-        print_color(colors.GREEN, "✅ SUCCESS: All control plane pods are healthy.")
-
-    return all_pods_ready
-
-
-def check_member_cluster_status():
-    print_color(colors.YELLOW, "\n--- Level 2: Checking Member Cluster Status ---")
-    env = {"KUBECONFIG": KARMADA_KUBECONFIG}
-    result = run_command(
-        ["kubectl", "get", "clusters", "-o", "json"], capture_output=True, env=env
-    )
-    all_clusters_ready = True
-    clusters_data = json.loads(result.stdout)
-    found_clusters = {
-        item["metadata"]["name"] for item in clusters_data.get("items", [])
-    }
-    for member_name in MEMBER_CLUSTERS:
-        if member_name not in found_clusters:
-            print_color(colors.RED, f"  - Cluster '{member_name}' is not registered.")
-            all_clusters_ready = False
-            continue
-        cluster_item = next(
-            item
-            for item in clusters_data["items"]
-            if item["metadata"]["name"] == member_name
-        )
-        is_ready = any(
-            c.get("type") == "Ready" and c.get("status") == "True"
-            for c in cluster_item.get("status", {}).get("conditions", [])
-        )
-        if is_ready:
-            print_color(colors.GREEN, f"  - Cluster '{member_name}' is Ready.")
-        else:
-            print_color(colors.RED, f"  - Cluster '{member_name}' is not Ready.")
-            all_clusters_ready = False
-    if all_clusters_ready:
-        print_color(
-            colors.GREEN, "✅ SUCCESS: All member clusters are registered and ready."
-        )
-    return all_clusters_ready
-
-
-def check_e2e_deployment():
-    print_color(
-        colors.YELLOW, "\n--- Level 3: Performing End-to-End Functionality Test ---"
-    )
-    karmada_env = {"KUBECONFIG": KARMADA_KUBECONFIG}
-    deployment_yaml = """
+# This Deployment manifest is from the official Karmada samples.
+# It will be created in the Karmada control plane.
+DEPLOYMENT_YAML = """
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: karmada-test-nginx
+  name: nginx
+  labels:
+    app: nginx
 spec:
   replicas: 2
   selector:
@@ -144,10 +32,13 @@ spec:
         app: nginx
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.21.6
+      - image: nginx
+        name: nginx
 """
-    policy_yaml = f"""
+
+# This PropagationPolicy tells Karmada to distribute the Deployment
+# named 'nginx' to all member clusters.
+PROPAGATION_POLICY_YAML = """
 apiVersion: policy.karmada.io/v1alpha1
 kind: PropagationPolicy
 metadata:
@@ -156,133 +47,183 @@ spec:
   resourceSelectors:
     - apiVersion: apps/v1
       kind: Deployment
-      name: karmada-test-nginx
+      name: nginx
   placement:
     clusterAffinity:
-      clusterNames: {MEMBER_CLUSTERS_TO_DEPLOY}
+      clusterNames:
+        - member1
+        - member2
+        - member3
 """
-    dep_filename, pol_filename = "", ""
-    try:
-        with (
-            tempfile.NamedTemporaryFile(
-                mode="w", delete=False, suffix=".yaml"
-            ) as dep_file,
-            tempfile.NamedTemporaryFile(
-                mode="w", delete=False, suffix=".yaml"
-            ) as pol_file,
-        ):
-            dep_file.write(deployment_yaml)
-            dep_filename = dep_file.name
-            pol_file.write(policy_yaml)
-            pol_filename = pol_file.name
 
-        print("--> Deploying test Nginx application and policy...")
-        run_command(["kubectl", "apply", "-f", dep_filename], env=karmada_env)
-        run_command(["kubectl", "apply", "-f", pol_filename], env=karmada_env)
-        print("--> Waiting up to 90 seconds for resources to propagate...")
-        time.sleep(90)
-        overall_success = True
+# This Service manifest will create a NodePort service, which exposes
+# the Nginx deployment on a port on each member cluster's node.
+# This is the key to making it accessible from the host.
+SERVICE_YAML = """
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: NodePort
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      # By default, Kubernetes will assign a free port in the 30000-32767 range.
+"""
 
-        for member in MEMBER_CLUSTERS_TO_DEPLOY:
-            print(f"--> Verifying deployment on '{member}'...")
-            kubeconfig_path = os.path.join(CONFIG_FILES_DIR, f"{member}.config")
-            pods = json.loads(
-                run_command(
-                    [
-                        "kubectl",
-                        "--kubeconfig",
-                        kubeconfig_path,
-                        "get",
-                        "pods",
-                        "-l",
-                        "app=nginx",
-                        "-o",
-                        "json",
-                    ],
-                    capture_output=True,
-                ).stdout
-            ).get("items", [])
-            running_pods = [p for p in pods if p["status"]["phase"] == "Running"]
-            if len(running_pods) == 2:
-                print_color(
-                    colors.GREEN, f"  - SUCCESS: Found 2 running pods on '{member}'."
-                )
-            else:
-                print_color(
-                    colors.RED,
-                    f"  - FAILED: Expected 2 running pods on '{member}', found {len(running_pods)}.",
-                )
-                overall_success = False
+# A separate policy is needed to propagate the Service to all clusters.
+SERVICE_POLICY_YAML = """
+apiVersion: policy.karmada.io/v1alpha1
+kind: PropagationPolicy
+metadata:
+  name: nginx-service-propagation
+spec:
+  resourceSelectors:
+    - apiVersion: v1
+      kind: Service
+      name: nginx-service
+  placement:
+    clusterAffinity:
+      clusterNames:
+        - member1
+        - member2
+        - member3
+"""
 
-        print(f"--> Verifying deployment is absent from '{MEMBER_CLUSTER_TO_AVOID}'...")
-        kubeconfig_path = os.path.join(
-            CONFIG_FILES_DIR, f"{MEMBER_CLUSTER_TO_AVOID}.config"
-        )
-        pods = json.loads(
-            run_command(
-                [
-                    "kubectl",
-                    "--kubeconfig",
-                    kubeconfig_path,
-                    "get",
-                    "pods",
-                    "-l",
-                    "app=nginx",
-                    "-o",
-                    "json",
-                ],
-                capture_output=True,
-            ).stdout
-        ).get("items", [])
-        if len(pods) == 0:
-            print_color(
-                colors.GREEN,
-                f"  - SUCCESS: No test pods found on '{MEMBER_CLUSTER_TO_AVOID}', as expected.",
-            )
-        else:
-            print_color(
-                colors.RED,
-                f"  - FAILED: Found {len(pods)} test pods on '{MEMBER_CLUSTER_TO_AVOID}', expected 0.",
-            )
-            overall_success = False
 
-        if overall_success:
-            print_color(colors.GREEN, "\n✅ SUCCESS: End-to-end test passed.")
-        return overall_success
-    finally:
-        print_color(colors.YELLOW, "\n--- Cleaning up test resources ---")
-        if dep_filename:
-            run_command(
-                ["kubectl", "delete", "-f", dep_filename], env=karmada_env, check=False
-            )
-        if pol_filename:
-            run_command(
-                ["kubectl", "delete", "-f", pol_filename], env=karmada_env, check=False
-            )
+def create_temp_file(content, suffix=".yaml"):
+    """Creates a temporary file with the given content and returns its path."""
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=suffix) as tmp_file:
+        tmp_file.write(content)
+        return tmp_file.name
 
 
 def main():
-    check_root_privileges("5-check-karmada.py")
-    check_dependencies()
-    results = {
-        "control_plane": check_control_plane_health(),
-        "member_clusters": check_member_cluster_status(),
-    }
-    if all(results.values()):
-        results["e2e_deployment"] = check_e2e_deployment()
-    else:
+    """Orchestrates the deployment and verification of the Nginx demo."""
+    check_root_privileges("3-nginx-demo.py")
+
+    karmada_env = {"KUBECONFIG": KARMADA_KUBECONFIG}
+
+    # Create temporary files for all manifests
+    dep_file = create_temp_file(DEPLOYMENT_YAML)
+    dep_policy_file = create_temp_file(PROPAGATION_POLICY_YAML)
+    svc_file = create_temp_file(SERVICE_YAML)
+    svc_policy_file = create_temp_file(SERVICE_POLICY_YAML)
+
+    try:
+        # --- Step 1: Deploy the Application and Policies ---
         print_color(
-            colors.RED, "\nSkipping Level 3 Test due to failures in preliminary checks."
+            colors.YELLOW,
+            "\n--- 1. Deploying Nginx application and policies to Karmada ---",
+        )
+        run_command(["kubectl", "apply", "-f", dep_file], env=karmada_env)
+        run_command(["kubectl", "apply", "-f", dep_policy_file], env=karmada_env)
+        run_command(["kubectl", "apply", "-f", svc_file], env=karmada_env)
+        run_command(["kubectl", "apply", "-f", svc_policy_file], env=karmada_env)
+
+        # --- Step 2: Verify Propagation and Pod Readiness ---
+        print_color(
+            colors.YELLOW,
+            "\n--- 2. Verifying application propagation and pod status ---",
+        )
+        print(
+            "--> Waiting up to 120 seconds for Nginx pods to be running on all member clusters..."
         )
 
-    print("\n\n" + "=" * 20 + " FINAL SUMMARY " + "=" * 20)
-    if all(results.values()):
+        all_pods_ready = False
+        for i in range(12):  # Wait up to 2 minutes
+            pods_ready_count = 0
+            for member in MEMBER_CLUSTERS:
+                kubeconfig_path = os.path.join(CONFIG_FILES_DIR, f"{member}.config")
+                # fmt: off
+                cmd = [
+                    "kubectl",
+                    "--kubeconfig", kubeconfig_path,
+                    "get", "pods",
+                    "-l", "app=nginx",
+                    "-o", "json",
+                ]
+                # fmt: on
+                result = run_command(cmd, check=False, capture_output=True)
+
+                if result.returncode == 0:
+                    pods = json.loads(result.stdout).get("items", [])
+                    running_pods = [
+                        p for p in pods if p.get("status", {}).get("phase") == "Running"
+                    ]
+                    if len(running_pods) == 2:  # We expect 2 replicas
+                        pods_ready_count += 1
+
+            if pods_ready_count == len(MEMBER_CLUSTERS):
+                print_color(
+                    colors.GREEN,
+                    "✅ SUCCESS: All Nginx pods are running on all member clusters.",
+                )
+                all_pods_ready = True
+                break
+
+            print(
+                f"Pods not ready yet (Ready clusters: {pods_ready_count}/{len(MEMBER_CLUSTERS)}). Retrying in 10s..."
+            )
+            time.sleep(10)
+
+        if not all_pods_ready:
+            print_color(
+                colors.RED,
+                "❌ FAILED: Timed out waiting for all Nginx pods to become ready.",
+            )
+            sys.exit(1)
+
+        # --- Step 3: Find the NodePort and Display Access URLs ---
         print_color(
-            colors.GREEN, "✅ All Karmada verification checks passed successfully!"
+            colors.YELLOW,
+            "\n--- 3. Finding service NodePort and displaying access URLs ---",
         )
-    else:
-        print_color(colors.RED, "❌ One or more Karmada verification checks failed.")
-    print("=" * 55)
+
+        # We only need to check one member cluster, as the NodePort will be the same across all of them.
+        member_to_check = MEMBER_CLUSTERS[0]
+        kubeconfig_path = os.path.join(CONFIG_FILES_DIR, f"{member_to_check}.config")
+        # fmt: off
+        cmd = [
+            "kubectl",
+            "--kubeconfig", kubeconfig_path,
+            "get", "service", "nginx-service",
+            "-o", "json",
+        ]
+        # fmt: on
+        result = run_command(cmd, capture_output=True, env=karmada_env)
+
+        service_info = json.loads(result.stdout)
+        node_port = service_info["spec"]["ports"][0]["nodePort"]
+
+        print_color(
+            colors.GREEN,
+            f"\n✅ Demo Deployed Successfully! Nginx is exposed on NodePort: {node_port}",
+        )
+        print("\nYou can now access the Nginx welcome page from your host machine.")
+        print("To verify, run one of the following curl commands on the host:")
+
+        for member, host_port in PORT_MAPPING.items():
+            # Since the member cluster's node is the LXD container, its IP is localhost
+            # and the port is the one we forwarded.
+            print(f"\n  # To access Nginx on cluster '{member}':")
+            print_color(colors.YELLOW, f"  curl http://127.0.0.1:{node_port}")
+
+    finally:
+        # --- Cleanup ---
+        print_color(
+            colors.YELLOW,
+            "\n\n--- To clean up the demo resources, run the following commands ---",
+        )
+        print(f"export KUBECONFIG={KARMADA_KUBECONFIG}")
+        print(f"kubectl delete -f {dep_file}")
+        print(f"kubectl delete -f {dep_policy_file}")
+        print(f"kubectl delete -f {svc_file}")
+        print(f"kubectl delete -f {svc_policy_file}")
 
 
 if __name__ == "__main__":
