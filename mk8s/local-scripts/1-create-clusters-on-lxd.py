@@ -95,6 +95,10 @@ def main():
         run_command(
             ["lxc", "exec", member, "--", "sudo", "microk8s", "status", "--wait-ready"]
         )
+
+        
+        print(f"Enabling addons in {member}...")
+        run_command(["lxc", "exec", member, "--", "sudo", "microk8s", "enable", "dns"])
         run_command(
             [
                 "lxc",
@@ -104,8 +108,7 @@ def main():
                 "sudo",
                 "microk8s",
                 "enable",
-                "dns",
-                "storage",
+                "hostpath-storage",
             ]
         )
 
@@ -115,12 +118,10 @@ def main():
         print(
             f"Setting up port forward: localhost:{host_port} -> container:{CONTAINER_API_PORT} for {member}..."
         )
-        # First, remove the device if it already exists to ensure a clean state
         run_command(
             ["lxc", "config", "device", "remove", member, proxy_device_name],
             check=False,
         )
-        # Now, add the device with the correct configuration
         proxy_command = [
             "lxc",
             "config",
@@ -140,22 +141,19 @@ def main():
             ["lxc", "exec", member, "--", "sudo", "microk8s", "config"],
             capture_output=True,
         )
-
         modified_content = result.stdout.replace(
             f"server: https://127.0.0.1:{CONTAINER_API_PORT}",
             f"server: https://127.0.0.1:{host_port}",
         )
-
         with open(kubeconfig_path, "w") as f:
             f.write(modified_content)
         set_correct_owner(kubeconfig_path)
 
-        # NEW: Health check to verify connectivity
+        # Health check to verify connectivity
         print(f"--> Health checking connection to {member} via port forward...")
         health_check_ok = False
         for i in range(10):  # Try for 100 seconds
-            # Use --insecure-skip-tls-verify for self-signed certs
-            # Use --timeout to fail fast
+            
             check_cmd = [
                 "kubectl",
                 "--kubeconfig",
@@ -163,13 +161,16 @@ def main():
                 "get",
                 "nodes",
                 "--insecure-skip-tls-verify",
-                "--timeout=10s",
             ]
             result = run_command(check_cmd, check=False)
             if result.returncode == 0:
                 print_color(colors.GREEN, f"✅ Health check PASSED for {member}.")
                 health_check_ok = True
                 break
+            print_color(
+                colors.YELLOW,
+                f"Health check attempt {i + 1}/10 failed. Retrying in 10s...",
+            )
             time.sleep(10)
 
         if not health_check_ok:
