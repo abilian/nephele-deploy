@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+"""Here's what this script does:
+
+1. **Checks for root privileges**: Ensures the script is run with sufficient permissions.
+2. **Checks for required tools and files**: Verifies that the Karmada kubeconfig and member cluster kubeconfigs are present.
+3. **Checks Karmada control plane health**: Verifies that all Karmada control plane pods are Running and Ready.
+4. **Checks member cluster status**: Ensures all member clusters are registered and in a Ready state.
+5. **Performs end-to-end deployment test**: Deploys a sample Nginx application across member clusters and verifies the deployment.
+6. **Cleans up test resources**: Deletes the test deployment and policies after verification.
+"""
+
 import json
 import os
 import sys

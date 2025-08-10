@@ -1,5 +1,3 @@
-# FILE: common.py
-
 import os
 import sys
 import subprocess
@@ -23,7 +21,10 @@ def print_color(color, message):
 def run_command(
     command, check=True, command_input=None, env=None, capture_output=False
 ):
-    """A comprehensive helper to run a shell command and handle errors."""
+    """
+    A comprehensive helper to run a shell command and handle errors.
+    It correctly inherits and updates the process environment.
+    """
     display_command = " ".join(command)
     if command_input:
         display_command += " <<< [INPUT]"
@@ -32,6 +33,7 @@ def run_command(
     try:
         process_env = os.environ.copy()
         if env:
+            # Update the copy with any specific variables for this command.
             process_env.update(env)
 
         result = subprocess.run(
@@ -39,7 +41,7 @@ def run_command(
             input=command_input,
             check=check,
             text=True,
-            env=process_env,
+            env=process_env,  # Use the merged environment
             capture_output=capture_output,
         )
         return result

@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
+"""Here's what this script does:
+
+1. **Checks for root privileges**: Ensures the script is run with sufficient permissions.
+2. **Installs required utilities**: Installs `make` and `fish` if they are not already present.
+3. **Installs MicroK8s**: Sets up MicroK8s if it is not already installed.
+4. **Installs and configures LXD**: Installs LXD, sets up a network bridge, and ensures the LXD daemon is running.
+5. **Installs Docker**: Installs Docker if it is not already present.
+6. **Installs kubectl**: Installs the Kubernetes command-line tool if it is not already present.
+7. **Installs Karmada CLI tools**: Downloads and installs the Karmada CLI tools from a remote script.
+"""
 
 import urllib.request
 import json
 import time
-import os
 import sys
 
 from common import (
@@ -14,6 +23,27 @@ from common import (
     colors,
 )
 from config import KARMADA_VERSION, LXD_BRIDGE_NAME
+
+
+def main():
+    check_root_privileges("0-prepare-server.py")
+    install_utilities()
+    install_microk8s()
+    install_lxd_and_configure_network()
+    install_docker()
+    install_kubectl()
+    install_karmada_tools()
+    if step_6_verify_and_repair_network_setup():
+        print_color(
+            colors.GREEN,
+            "\n\n✅ --- Prerequisite and Network setup is complete and verified! --- ✅",
+        )
+    else:
+        print_color(
+            colors.RED,
+            "\n\n❌ --- Prerequisite setup complete, but network verification failed! --- ❌",
+        )
+        sys.exit(1)
 
 
 def wait_for_lxd_daemon():
@@ -27,6 +57,15 @@ def wait_for_lxd_daemon():
         time.sleep(10)
     print_color(colors.RED, "FATAL: Timed out waiting for LXD daemon.")
     sys.exit(1)
+
+
+def install_utilities():
+    if command_exists("make"):
+        print("Make is already installed. Skipping.")
+        return
+    print("Installing make...")
+    run_command(["apt-get", "update"])
+    run_command(["apt-get", "install", "-y", "make", "fish"])
 
 
 def install_microk8s():
@@ -69,15 +108,9 @@ def install_docker():
     if command_exists("docker"):
         print("Docker is already installed. Skipping.")
         return
-    if os.path.exists("/etc/debian_version"):
-        print("Installing Docker for Debian/Ubuntu...")
-        run_command(["apt-get", "update"])
-        run_command(["apt-get", "install", "-y", "docker.io"])
-    else:
-        print_color(
-            colors.RED, "Cannot automatically install Docker on non-Debian systems."
-        )
-        sys.exit(1)
+    print("Installing Docker for Debian/Ubuntu...")
+    run_command(["apt-get", "update"])
+    run_command(["apt-get", "install", "-y", "docker.io"])
 
 
 def install_kubectl():
@@ -182,26 +215,6 @@ def step_6_verify_and_repair_network_setup():
         )
         all_checks_passed = False
     return all_checks_passed
-
-
-def main():
-    check_root_privileges("0-prepare-server.py")
-    install_microk8s()
-    install_lxd_and_configure_network()
-    install_docker()
-    install_kubectl()
-    install_karmada_tools()
-    if step_6_verify_and_repair_network_setup():
-        print_color(
-            colors.GREEN,
-            "\n\n✅ --- Prerequisite and Network setup is complete and verified! --- ✅",
-        )
-    else:
-        print_color(
-            colors.RED,
-            "\n\n❌ --- Prerequisite setup complete, but network verification failed! --- ❌",
-        )
-        sys.exit(1)
 
 
 if __name__ == "__main__":
