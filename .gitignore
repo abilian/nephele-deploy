@@ -19,3 +19,7 @@ pyinfra-debug.log
 # Secrets
 .envrc
 .env
+
+# Cruft
+.DS_Store
+.idea/
