@@ -6,9 +6,9 @@ Warning: connection as user root.
 pyinfra -y -v --user root ${SERVER_NAME} 12-deploy-demo-hello-world.py
 """
 
-from pyinfra.operations import server, python
-from common import log_callback
+from pyinfra.operations import python, server
 
+from common import log_callback
 from constants import GITS
 
 TOP_DIR = f"{GITS}/h3ni-demos/"
@@ -17,6 +17,7 @@ REGISTRY_URL = "http://host.docker.internal:5000"
 DEMO = f"{GITS}/h3ni-demos/0-hello-world-demo"
 PROJECT = "demo0"
 GRAPH_NAME = "hello-world-graph"
+INTERNAL_IP = "host.docker.internal"
 
 
 def make_graph_delete_cmd(graph: str) -> str:
@@ -64,17 +65,38 @@ def clean_installed_graphs() -> None:
 
 def prepare_hello_world() -> None:
     server.shell(
+        name="Fix image name and address",
+        commands=[
+            f"""
+            cd {DEMO}/hdag
+
+            perl -pi -e 's/127.0.0.1/{INTERNAL_IP}/g' hdag.yaml
+
+            perl -pi -e 's;test/hello-world;demo0/hello-world;g' hdag.yaml
+
+            perl -pi -e 's;version: '1.0.0';version: '0.1.0';g' hdag.yaml
+
+
+            cd {DEMO}/hello-world/templates
+            # perl -pi -e 's/127.0.0.1/{INTERNAL_IP}/g' deployment.yaml
+            # perl -pi -e 's/127.0.0.1/localhost/g' deployment.yaml
+            perl -pi -e 's/127.0.0.1/157.180.81.252/g' deployment.yaml
+            """
+        ],
+        _get_pty=True,
+        _shell_executable="/bin/bash",
+    )
+
+    server.shell(
         name="Prepare hello-world-graph",
         commands=[
-            (
-                f"""
-                cd {TOP_DIR}
-                . .venv/bin/activate
+            f"""
+            cd {TOP_DIR}
+            . .venv/bin/activate
 
-                cd {DEMO}
-                inv prepare
-                """
-            )
+            cd {DEMO}
+            inv prepare
+            """
         ],
         _get_pty=True,
         _shell_executable="/bin/bash",

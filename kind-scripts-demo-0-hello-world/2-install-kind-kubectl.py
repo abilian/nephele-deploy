@@ -8,7 +8,6 @@ pyinfra -y -vv --user root ${SERVER_NAME} 2-install-kind-kubectl.py
 
 from pyinfra.operations import apt, server, snap, systemd
 
-
 APT_PACKAGES = ["snapd"]
 SNAP_PACKAGES = ["lxd"]
 SNAP_PACKAGES_CLASSIC = ["helm", "kubeadm"]
