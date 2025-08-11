@@ -2,11 +2,12 @@
 
 """
 Here's what this script does:
-1. Deploys an Nginx application and policies to the Karmada control plane.
-2. Verifies that the Nginx pods become 'Running' on all member clusters.
-3. Retrieves the service NodePort and creates unique LXD port-forwards for each cluster.
-4. **Performs automated HTTP checks** to confirm each Nginx instance is accessible.
-5. **Automatically cleans up** all demo resources (deployments, policies, services, and LXD devices).
+1. Deploys a simple "Hello World" Flask application to the Karmada control plane.
+2. Creates PropagationPolicies to distribute the app to all three member clusters.
+3. Verifies that the Flask application pods become 'Running' on all member clusters.
+4. Retrieves the service NodePort and creates unique LXD port-forwards for each cluster.
+5. **Performs automated HTTP checks** to confirm each Flask instance is accessible and returns the correct content.
+6. **Automatically cleans up** all demo resources (deployments, policies, services, and LXD devices).
 """
 
 import os
@@ -21,78 +22,83 @@ from common import run_command, check_root_privileges, print_color, colors
 from config import MEMBER_CLUSTERS, KARMADA_KUBECONFIG, CONFIG_FILES_DIR
 
 # --- Configuration ---
+# Use a new port range to avoid conflicts with other demos
 APP_HOST_PORT_MAPPING = {
-    "member1": "32001",
-    "member2": "32002",
-    "member3": "32003",
+    "member1": "32101",
+    "member2": "32102",
+    "member3": "32103",
 }
 
 # --- Manifests ---
+# Using a simple, public "Hello World" Flask image that listens on port 5000.
 DEPLOYMENT_YAML = """
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx-demo
+  name: flask-demo
   labels:
-    app: nginx-demo
+    app: flask-demo
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: nginx-demo
+      app: flask-demo
   template:
     metadata:
       labels:
-        app: nginx-demo
+        app: flask-demo
     spec:
       containers:
-      - image: nginx
-        name: nginx
+      - image: digitalocean/flask-helloworld:latest
+        name: flask
+        ports:
+        - containerPort: 5000
 """
 
 PROPAGATION_POLICY_YAML = f"""
 apiVersion: policy.karmada.io/v1alpha1
 kind: PropagationPolicy
 metadata:
-  name: nginx-demo-propagation
+  name: flask-demo-propagation
 spec:
   resourceSelectors:
     - apiVersion: apps/v1
       kind: Deployment
-      name: nginx-demo
+      name: flask-demo
   placement:
     clusterAffinity:
-      clusterNames: {MEMBER_CLUSTERS}
+      clusterNames: {json.dumps(MEMBER_CLUSTERS)}
 """
 
+# The service exposes the standard port 80 and targets the container's port 5000.
 SERVICE_YAML = """
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx-demo-service
+  name: flask-demo-service
 spec:
   type: NodePort
   selector:
-    app: nginx-demo
+    app: flask-demo
   ports:
     - protocol: TCP
       port: 80
-      targetPort: 80
+      targetPort: 5000
 """
 
 SERVICE_POLICY_YAML = f"""
 apiVersion: policy.karmada.io/v1alpha1
 kind: PropagationPolicy
 metadata:
-  name: nginx-demo-service-propagation
+  name: flask-demo-service-propagation
 spec:
   resourceSelectors:
     - apiVersion: v1
       kind: Service
-      name: nginx-demo-service
+      name: flask-demo-service
   placement:
     clusterAffinity:
-      clusterNames: {MEMBER_CLUSTERS}
+      clusterNames: {json.dumps(MEMBER_CLUSTERS)}
 """
 
 
@@ -109,7 +115,7 @@ def deploy_resources(karmada_env):
     """Deploys all necessary Kubernetes resources for the demo."""
     print_color(
         colors.YELLOW,
-        "\n--- 1. Deploying Nginx application and policies to Karmada ---",
+        "\n--- 1. Deploying Flask application and policies to Karmada ---",
     )
 
     dep_file = create_temp_file(DEPLOYMENT_YAML)
@@ -126,12 +132,12 @@ def deploy_resources(karmada_env):
 
 
 def verify_pod_readiness():
-    """Waits for and verifies that all Nginx pods are running in all member clusters."""
+    """Waits for and verifies that all Flask pods are running in all member clusters."""
     print_color(
         colors.YELLOW, "\n--- 2. Verifying application propagation and pod status ---"
     )
     print(
-        "--> Waiting up to 120 seconds for Nginx pods to be running on all member clusters..."
+        "--> Waiting up to 120 seconds for Flask pods to be running on all member clusters..."
     )
 
     for i in range(12):
@@ -145,7 +151,7 @@ def verify_pod_readiness():
                 "get",
                 "pods",
                 "-l",
-                "app=nginx-demo",
+                "app=flask-demo",
                 "-o",
                 "json",
             ]
@@ -155,13 +161,14 @@ def verify_pod_readiness():
                 running_pods = [
                     p for p in pods if p.get("status", {}).get("phase") == "Running"
                 ]
-                if len(running_pods) == 2:
+                # Expecting 1 replica per cluster as defined in the deployment YAML
+                if len(running_pods) == 1:
                     pods_ready_count += 1
 
         if pods_ready_count == len(MEMBER_CLUSTERS):
             print_color(
                 colors.GREEN,
-                "✅ SUCCESS: All Nginx pods are running on all member clusters.",
+                "✅ SUCCESS: All Flask pods are running on all member clusters.",
             )
             return True
 
@@ -171,7 +178,7 @@ def verify_pod_readiness():
         time.sleep(10)
 
     print_color(
-        colors.RED, "❌ FAILED: Timed out waiting for all Nginx pods to become ready."
+        colors.RED, "❌ FAILED: Timed out waiting for all Flask pods to become ready."
     )
     return False
 
@@ -190,11 +197,20 @@ def expose_services_and_get_nodeport():
         kubeconfig_path,
         "get",
         "service",
-        "nginx-demo-service",
+        "flask-demo-service",
         "-o",
         "json",
     ]
-    result = run_command(cmd, capture_output=True)
+    print("--> Waiting for service to be created to get NodePort...")
+    # It can take a moment for the service to be propagated and created
+    for _ in range(6):
+        result = run_command(cmd, capture_output=True, check=False)
+        if result.returncode == 0:
+            break
+        time.sleep(10)
+    else:
+        print_color(colors.RED, "❌ FAILED: Could not find flask-demo-service.")
+        return None
 
     service_info = json.loads(result.stdout)
     node_port = service_info["spec"]["ports"][0]["nodePort"]
@@ -202,7 +218,8 @@ def expose_services_and_get_nodeport():
     print(f"--> Service NodePort is {node_port}. Creating unique LXD proxy devices...")
     for member in MEMBER_CLUSTERS:
         host_port = APP_HOST_PORT_MAPPING[member]
-        proxy_device_name = "proxy-nginx"
+        proxy_device_name = "proxy-flask"
+        # Clean up old device first to ensure idempotency
         run_command(
             ["lxc", "config", "device", "remove", member, proxy_device_name],
             check=False,
@@ -224,28 +241,34 @@ def expose_services_and_get_nodeport():
 
 
 def verify_http_access():
-    """Uses http.client to verify that each Nginx endpoint is accessible and returns HTTP 200."""
+    """Uses http.client to verify that each Flask endpoint is accessible and returns 'Hello World!'"""
     print_color(
-        colors.YELLOW, "\n--- 4. Verifying HTTP access to all Nginx instances ---"
+        colors.YELLOW, "\n--- 4. Verifying HTTP access to all Flask instances ---"
     )
     all_accessible = True
 
+    # Give the proxy a moment to stabilize
+    time.sleep(5)
+
     for member, host_port in APP_HOST_PORT_MAPPING.items():
         print(
-            f"--> Checking connection to Nginx on {member} (http://127.0.0.1:{host_port})..."
+            f"--> Checking connection to Flask on {member} (http://127.0.0.1:{host_port})..."
         )
         try:
             conn = http.client.HTTPConnection("127.0.0.1", int(host_port), timeout=10)
             conn.request("GET", "/")
             response = conn.getresponse()
-            if response.status == 200:
+            body = response.read().decode("utf-8")
+
+            if response.status == 200 and "Hello, World!" in body:
                 print_color(
-                    colors.GREEN, f"  - ✅ SUCCESS: Received HTTP {response.status} OK."
+                    colors.GREEN,
+                    f"  - ✅ SUCCESS: Received HTTP 200 OK with correct content.",
                 )
             else:
                 print_color(
                     colors.RED,
-                    f"  - ❌ FAILED: Received unexpected status HTTP {response.status}.",
+                    f"  - ❌ FAILED: Received status {response.status} with body: '{body}'",
                 )
                 all_accessible = False
             conn.close()
@@ -258,13 +281,13 @@ def verify_http_access():
 
 def cleanup_demo_resources(created_files):
     """Automatically cleans up all resources created by the demo script."""
-    print_color(colors.YELLOW, "\n--- 5. Cleaning up all demo resources ---")
+    print_color(colors.YELLOW, "\n--- 5. Cleaning up all Flask demo resources ---")
     karmada_env = {"KUBECONFIG": KARMADA_KUBECONFIG}
 
     # Remove LXD proxy devices
     for member in MEMBER_CLUSTERS:
         run_command(
-            ["lxc", "config", "device", "remove", member, "proxy-nginx"], check=False
+            ["lxc", "config", "device", "remove", member, "proxy-flask"], check=False
         )
 
     # Delete Kubernetes resources
@@ -277,31 +300,41 @@ def cleanup_demo_resources(created_files):
             )
             os.remove(f)
 
-    print_color(colors.GREEN, "✅ Demo cleanup complete.")
+    print_color(colors.GREEN, "✅ Flask Demo cleanup complete.")
 
 
 def main():
-    """Orchestrates the deployment, verification, and cleanup of the Nginx demo."""
-    check_root_privileges("4-nginx-demo.py")
+    """Orchestrates the deployment, verification, and cleanup of the Flask demo."""
+    check_root_privileges("5-flask-demo.py")
     created_files = []
+    all_tests_passed = False
 
     try:
-        created_files = deploy_resources({"KUBECONFIG": KARMADA_KUBECONFIG})
+        karmada_env = {"KUBECONFIG": KARMADA_KUBECONFIG}
+        created_files = deploy_resources(karmada_env)
 
         if not verify_pod_readiness():
             sys.exit(1)
 
-        expose_services_and_get_nodeport()
+        node_port = expose_services_and_get_nodeport()
+        if not node_port:
+            sys.exit(1)
 
         if not verify_http_access():
             sys.exit(1)
 
         print_color(
             colors.GREEN,
-            "\n\n✅ --- Nginx Demo Completed and Verified Successfully! --- ✅",
+            "\n\n✅ --- Flask Demo Completed and Verified Successfully! --- ✅",
         )
+        all_tests_passed = True
 
     finally:
+        if not all_tests_passed:
+            print_color(
+                colors.RED,
+                "\nOne or more steps failed. Proceeding with cleanup...",
+            )
         cleanup_demo_resources(created_files)
 
 
