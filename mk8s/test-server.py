@@ -55,7 +55,7 @@ def main():
     run_script("./2-setup-karmada.py")
     run_script("./3-check-karmada.py")
     run_script("./4-nginx-demo-alt.py")
-    # run_strip("./4-nginx-demo.py")
+
     # run_strip("./8-remove-karmada.py")
     # run_strip("./9-tidy-up.py")
 
