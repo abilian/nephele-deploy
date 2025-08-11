@@ -52,9 +52,14 @@ def create_temp_file(content):
 
 def build_and_save_image_locally():
     """Builds the Docker image and saves it to a temporary tar file."""
-    print_color(colors.YELLOW, f"\n--- 1. Building and Saving Image: {CUSTOM_IMAGE_NAME} ---")
+    print_color(
+        colors.YELLOW, f"\n--- 1. Building and Saving Image: {CUSTOM_IMAGE_NAME} ---"
+    )
     if not os.path.isdir(APP_BUILD_CONTEXT):
-        print_color(colors.RED, f"FATAL: App build directory not found at '{APP_BUILD_CONTEXT}'.")
+        print_color(
+            colors.RED,
+            f"FATAL: App build directory not found at '{APP_BUILD_CONTEXT}'.",
+        )
         sys.exit(1)
 
     print(f"--> Building image with tag: {CUSTOM_IMAGE_NAME}")
@@ -82,7 +87,9 @@ def distribute_and_import_image(image_tar_path):
         run_command(["lxc", "file", "push", image_tar_path, f"{member}{remote_path}"])
 
         print(f"    - Importing image from '{remote_path}' into the cluster's cache...")
-        run_command(["lxc", "exec", member, "--", "microk8s", "images", "import", remote_path])
+        run_command(
+            ["lxc", "exec", member, "--", "microk8s", "images", "import", remote_path]
+        )
 
     print_color(colors.GREEN, "✅ Image distributed to all member clusters.")
 
@@ -175,17 +182,31 @@ def verify_pod_readiness():
         ready_count = 0
         for member in MEMBER_CLUSTERS:
             kubeconfig = os.path.join(CONFIG_FILES_DIR, f"{member}.config")
-            cmd = ["kubectl", "--kubeconfig", kubeconfig, "get", "pods", "-l", f"app={APP_NAME}", "-o", "json"]
+            cmd = [
+                "kubectl",
+                "--kubeconfig",
+                kubeconfig,
+                "get",
+                "pods",
+                "-l",
+                f"app={APP_NAME}",
+                "-o",
+                "json",
+            ]
             result = run_command(cmd, check=False, capture_output=True)
             if result.returncode == 0:
                 pods = json.loads(result.stdout).get("items", [])
-                running = [p for p in pods if p.get("status", {}).get("phase") == "Running"]
+                running = [
+                    p for p in pods if p.get("status", {}).get("phase") == "Running"
+                ]
                 if len(running) == 1:
                     ready_count += 1
         if ready_count == len(MEMBER_CLUSTERS):
             print_color(colors.GREEN, "✅ SUCCESS: All pods are running.")
             return True
-        print(f"Pods not ready yet ({ready_count}/{len(MEMBER_CLUSTERS)}). Retrying in 10s...")
+        print(
+            f"Pods not ready yet ({ready_count}/{len(MEMBER_CLUSTERS)}). Retrying in 10s..."
+        )
         time.sleep(10)
     print_color(colors.RED, "❌ FAILED: Timed out waiting for pods to become ready.")
     return False
@@ -193,9 +214,20 @@ def verify_pod_readiness():
 
 def expose_services_and_get_nodeport():
     """Finds the service NodePort and creates LXD port forwards."""
-    print_color(colors.YELLOW, "\n--- 5. Exposing application via LXD Port Forwarding ---")
+    print_color(
+        colors.YELLOW, "\n--- 5. Exposing application via LXD Port Forwarding ---"
+    )
     kubeconfig = os.path.join(CONFIG_FILES_DIR, f"{MEMBER_CLUSTERS[0]}.config")
-    cmd = ["kubectl", "--kubeconfig", kubeconfig, "get", "service", f"{APP_NAME}-service", "-o", "json"]
+    cmd = [
+        "kubectl",
+        "--kubeconfig",
+        kubeconfig,
+        "get",
+        "service",
+        f"{APP_NAME}-service",
+        "-o",
+        "json",
+    ]
     for _ in range(6):
         result = run_command(cmd, capture_output=True, check=False)
         if result.returncode == 0:
@@ -207,8 +239,23 @@ def expose_services_and_get_nodeport():
     node_port = json.loads(result.stdout)["spec"]["ports"][0]["nodePort"]
     print(f"--> Service NodePort is {node_port}. Creating LXD proxy devices...")
     for member, host_port in APP_HOST_PORT_MAPPING.items():
-        run_command(["lxc", "config", "device", "remove", member, PROXY_DEVICE_NAME], check=False)
-        run_command(["lxc", "config", "device", "add", member, PROXY_DEVICE_NAME, "proxy", f"listen=tcp:0.0.0.0:{host_port}", f"connect=tcp:127.0.0.1:{node_port}"])
+        run_command(
+            ["lxc", "config", "device", "remove", member, PROXY_DEVICE_NAME],
+            check=False,
+        )
+        run_command(
+            [
+                "lxc",
+                "config",
+                "device",
+                "add",
+                member,
+                PROXY_DEVICE_NAME,
+                "proxy",
+                f"listen=tcp:0.0.0.0:{host_port}",
+                f"connect=tcp:127.0.0.1:{node_port}",
+            ]
+        )
     return node_port
 
 
@@ -225,9 +272,15 @@ def verify_http_access():
             response = conn.getresponse()
             body = response.read().decode()
             if response.status == 200 and "Hello from our Custom Flask App" in body:
-                print_color(colors.GREEN, f"  - ✅ SUCCESS: Received HTTP 200. Body contains expected text.")
+                print_color(
+                    colors.GREEN,
+                    f"  - ✅ SUCCESS: Received HTTP 200. Body contains expected text.",
+                )
             else:
-                print_color(colors.RED, f"  - ❌ FAILED: Status {response.status}, Body: '{body}'")
+                print_color(
+                    colors.RED,
+                    f"  - ❌ FAILED: Status {response.status}, Body: '{body}'",
+                )
                 all_ok = False
             conn.close()
         except Exception as e:
@@ -243,13 +296,32 @@ def cleanup_demo_resources(created_files, image_tar_path):
     # Delete Kubernetes resources
     for f in reversed(created_files):
         if os.path.exists(f):
-            run_command(["kubectl", "delete", "-f", f, "--ignore-not-found=true"], env=karmada_env, check=False)
+            run_command(
+                ["kubectl", "delete", "-f", f, "--ignore-not-found=true"],
+                env=karmada_env,
+                check=False,
+            )
             os.remove(f)
     # Remove LXD proxy devices
     for member in MEMBER_CLUSTERS:
-        run_command(["lxc", "config", "device", "remove", member, PROXY_DEVICE_NAME], check=False)
+        run_command(
+            ["lxc", "config", "device", "remove", member, PROXY_DEVICE_NAME],
+            check=False,
+        )
         print(f"--> Removing cached image from {member}...")
-        run_command(["lxc", "exec", member, "--", "microk8s", "images", "rm", CUSTOM_IMAGE_NAME], check=False)
+        run_command(
+            [
+                "lxc",
+                "exec",
+                member,
+                "--",
+                "microk8s",
+                "images",
+                "rm",
+                CUSTOM_IMAGE_NAME,
+            ],
+            check=False,
+        )
     # Remove local tar file
     if image_tar_path and os.path.exists(image_tar_path):
         print(f"--> Removing temporary image tarball: {image_tar_path}")
@@ -274,16 +346,24 @@ def main():
         karmada_env = {"KUBECONFIG": KARMADA_KUBECONFIG}
         created_files = deploy_resources(karmada_env)
 
-        if not verify_pod_readiness(): sys.exit(1)
-        if not expose_services_and_get_nodeport(): sys.exit(1)
-        if not verify_http_access(): sys.exit(1)
+        if not verify_pod_readiness():
+            sys.exit(1)
+        if not expose_services_and_get_nodeport():
+            sys.exit(1)
+        if not verify_http_access():
+            sys.exit(1)
 
-        print_color(colors.GREEN, "\n\n✅ --- Simple Custom Flask Demo Completed Successfully! --- ✅")
+        print_color(
+            colors.GREEN,
+            "\n\n✅ --- Simple Custom Flask Demo Completed Successfully! --- ✅",
+        )
         all_tests_passed = True
 
     finally:
         if not all_tests_passed:
-            print_color(colors.RED, "\nOne or more steps failed. Proceeding with cleanup...")
+            print_color(
+                colors.RED, "\nOne or more steps failed. Proceeding with cleanup..."
+            )
         cleanup_demo_resources(created_files, image_tar_path)
 
 

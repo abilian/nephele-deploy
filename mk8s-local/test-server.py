@@ -26,7 +26,8 @@ def main():
         # fmt: off
         [
             "ssh",
-            "-o", "StrictHostKeyChecking=accept-new",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
             f"root@{SERVER_NAME}",
             "sleep 1",
         ],
@@ -39,7 +40,8 @@ def main():
         # fmt: off
         [
             "rsync",
-            "-e", "ssh",
+            "-e",
+            "ssh",
             "-avz",
             "./local-scripts/",
             f"root@{SERVER_NAME}:/root/local-scripts/",
