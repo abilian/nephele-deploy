@@ -33,6 +33,8 @@ def main():
     check_root_privileges("4-setup-karmada-on-mk8s.py")
     run_preflight_checks()
     step_1_prepare_host_cluster()
+    # Added because the registry can take a while to become available (seemingly)
+    time.sleep(10)
     step_2_push_images_to_local_registry()
     step_3_deploy_and_wait_for_karmada_control_plane()
     step_4_join_member_clusters()
