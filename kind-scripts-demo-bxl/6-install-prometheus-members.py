@@ -256,6 +256,7 @@ def install_prometheus_crds_member(mid: int) -> None:
 
 def check_prometheus_member(mid: int) -> None:
     member_ctx = member_context_cmd(mid)
+    port = nodeport(mid)
 
     result = server.shell(
         name=f"Check member{mid} docker IP",
@@ -304,7 +305,11 @@ def check_prometheus_member(mid: int) -> None:
                 member_node_ip=$(kubectl get nodes -o \
                 jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
 
-                url="http://${member_node_ip}:30090"
+                """
+                f"""
+                url="http://${{member_node_ip}}:{port}"
+                """
+                """
 
                 max_try=30
                 interval=2
