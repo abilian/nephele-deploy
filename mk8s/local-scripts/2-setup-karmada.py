@@ -187,79 +187,61 @@ def step_4_join_member_clusters():
         print_color(colors.YELLOW, f"--> Processing cluster: {member}")
 
         check_join_cmd = ["karmadactl", "get", "cluster", member, "-o", "json"]
-        result = run_command(
-            check_join_cmd,
-            check=False,
-            env={"KUBECONFIG": KARMADA_KUBECONFIG},
-            capture_output=True,
-        )
+        result = run_command(check_join_cmd, check=False, env={"KUBECONFIG": KARMADA_KUBECONFIG}, capture_output=True)
 
         cluster_exists = result.returncode == 0
         cluster_ready = False
         if cluster_exists:
             try:
                 cluster_info = json.loads(result.stdout)
-                for condition in cluster_info.get("status", {}).get("conditions", []):
-                    if (
-                        condition.get("type") == "Ready"
-                        and condition.get("status") == "True"
-                    ):
+                for condition in cluster_info.get('status', {}).get('conditions', []):
+                    if condition.get('type') == 'Ready' and condition.get('status') == 'True':
                         cluster_ready = True
                         break
             except (json.JSONDecodeError, KeyError):
                 pass
 
         if cluster_exists and cluster_ready:
-            print_color(
-                colors.GREEN,
-                f"Cluster '{member}' is already registered and Ready. Skipping.",
-            )
+            print_color(colors.GREEN, f"Cluster '{member}' is already registered and Ready. Skipping.")
             continue
 
         member_config_path = os.path.join(CONFIG_FILES_DIR, f"{member}.config")
 
-        print(
-            f"    - Ensuring cluster object for '{member}' is present and up-to-date..."
-        )
-        join_command = [
-            "karmadactl",
-            "join",
-            member,
-            "--cluster-kubeconfig",
-            member_config_path,
-        ]
+        print(f"    - Ensuring cluster object for '{member}' is present and up-to-date...")
+        join_command = ["karmadactl", "join", member, "--cluster-kubeconfig", member_config_path]
         run_command(join_command, env={"KUBECONFIG": KARMADA_KUBECONFIG})
 
         print(f"    - Creating bootstrap token for agent deployment...")
         token_create_cmd = [
-            "karmadactl",
-            "token",
-            "create",
-            "--kubeconfig",
-            KARMADA_KUBECONFIG,
-            "--print-register-command",
+            "karmadactl", "token", "create",
+            "--kubeconfig", KARMADA_KUBECONFIG,
+            "--print-register-command"
         ]
         result = run_command(token_create_cmd, capture_output=True)
         register_command_str = result.stdout.strip()
 
-        print(
-            f"    - Deploying/updating karmada-agent on '{member}' using the token..."
-        )
-        register_command_list = register_command_str.split()
-        register_command_list.extend(
-            [
-                "--cluster-name",
-                member,
-                "--cluster-kubeconfig",
-                member_config_path,
-                "--private-image-registry",
-                HOST_REGISTRY,
-            ]
-        )
+        print(f"    - Deploying/updating karmada-agent on '{member}' using the token...")
 
-        run_command(register_command_list)
+        # CORRECTED: Build the command list correctly.
+        base_command = ["karmadactl", "--kubeconfig", member_config_path]
+
+        # The token create command gives us "karmadactl register <server> --token <token> ..."
+        # We must skip the first word ("karmadactl")
+        register_args = register_command_str.split()[1:]
+
+        final_command = base_command + register_args
+
+        # CORRECTED: Use the '--karmada-agent-image' flag, which is valid for the 'register' command.
+        agent_image_for_join = f"{HOST_REGISTRY}/karmada-agent:v{KARMADA_VERSION}"
+        final_command.extend([
+            "--cluster-name", member,
+            "--karmada-agent-image", agent_image_for_join
+        ])
+
+        run_command(final_command)
 
     print("All member clusters have been joined and configured.")
+
 
 
 if __name__ == "__main__":
