@@ -6,6 +6,8 @@ Warning: connection as user root.
 pyinfra -y -v --user root ${SERVER_NAME} 12-deploy-demo-hello-world.py
 """
 
+from pyinfra import host
+from pyinfra.facts.hardware import Ipv4Addrs
 from pyinfra.operations import python, server
 
 from common import log_callback
@@ -49,6 +51,7 @@ def main() -> None:
     check_graph_list()
     check_clusters()
     find_kubernetes_pods()
+    find_demo0()
 
 
 def clean_installed_graphs() -> None:
@@ -64,6 +67,8 @@ def clean_installed_graphs() -> None:
 
 
 def prepare_hello_world() -> None:
+    ips = host.get_fact(Ipv4Addrs)
+    eth0 = ips["eth0"][0]
     server.shell(
         name="Fix image name and address",
         commands=[
@@ -76,11 +81,10 @@ def prepare_hello_world() -> None:
 
             perl -pi -e 's;version: '1.0.0';version: '0.1.0';g' hdag.yaml
 
-
             cd {DEMO}/hello-world/templates
             # perl -pi -e 's/127.0.0.1/{INTERNAL_IP}/g' deployment.yaml
             # perl -pi -e 's/127.0.0.1/localhost/g' deployment.yaml
-            perl -pi -e 's/127.0.0.1/157.180.81.252/g' deployment.yaml
+            perl -pi -e 's/127.0.0.1/{eth0}/g' deployment.yaml
             """
         ],
         _get_pty=True,
@@ -150,10 +154,10 @@ def check_clusters() -> None:
 
 def find_kubernetes_pods() -> None:
     for context in (
-        "karmada-host",
-        "karmada-apiserver",
+        # "karmada-host",
+        # "karmada-apiserver",
         "member1",
-        "member2",
+        # "member2",
     ):
         result = server.shell(
             name=f"Find kubernetes pods in {context!r}",
@@ -173,6 +177,29 @@ def find_kubernetes_pods() -> None:
             function=log_callback,
             result=result,
         )
+
+
+def find_demo0() -> None:
+    result = server.shell(
+        name="Find demo0 in member1",
+        commands=[
+            """
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context member1
+
+            pod_name=$(kubectl get pods -n demo0 -o jsonpath='{.items[0].metadata.name}')
+            kubectl port-forward -n demo0 8080:8080 &
+            curl http://localhost:8080
+        """
+        ],
+        _get_pty=True,
+        _shell_executable="/bin/bash",
+    )
+    python.call(
+        name="Show demo0 response in member1",
+        function=log_callback,
+        result=result,
+    )
 
 
 main()

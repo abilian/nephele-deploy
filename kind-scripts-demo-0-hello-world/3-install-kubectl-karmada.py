@@ -43,6 +43,8 @@ member3   v1.31.2   Pull   True    58m
 
 from textwrap import dedent
 
+from pyinfra import host
+from pyinfra.facts.hardware import Ipv4Addrs
 from pyinfra.operations import files, python, server
 
 from common import log_callback
@@ -103,6 +105,9 @@ def install_karmada_clusters() -> None:
     #     "https://raw.githubusercontent.com/karmada-io/"
     #     "karmada/master/hack/install-cli.sh"
     # )
+    ips = host.get_fact(Ipv4Addrs)
+    eth0 = ips["eth0"][0]
+
     files.file(
         name="Remove old kubectl-karmada CLI",
         path="/usr/local/bin/kubectl-karmada",
@@ -154,8 +159,8 @@ def install_karmada_clusters() -> None:
               - role: control-plane
             containerdConfigPatches:
             - |-
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."157.180.81.252:5000"]
-                endpoint = ["http://157.180.81.252:5000"]
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{eth0}:5000"]
+                endpoint = ["http://{eth0}:5000"]
               [plugins."io.containerd.grpc.v1.cri".registry.mirrors."127.0.0.1:5000"]
                 endpoint = ["http://127.0.0.1:5000"]
             EOF
@@ -171,8 +176,8 @@ def install_karmada_clusters() -> None:
               - role: control-plane
             containerdConfigPatches:
             - |-
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."157.180.81.252:5000"]
-                endpoint = ["http://157.180.81.252:5000"]
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{eth0}:5000"]
+                endpoint = ["http://{eth0}:5000"]
               [plugins."io.containerd.grpc.v1.cri".registry.mirrors."127.0.0.1:5000"]
                 endpoint = ["http://127.0.0.1:5000"]
             EOF
@@ -187,8 +192,8 @@ def install_karmada_clusters() -> None:
               - role: control-plane
             containerdConfigPatches:
             - |-
-              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."157.180.81.252:5000"]
-                endpoint = ["http://157.180.81.252:5000"]
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{eth0}:5000"]
+                endpoint = ["http://{eth0}:5000"]
               [plugins."io.containerd.grpc.v1.cri".registry.mirrors."127.0.0.1:5000"]
                 endpoint = ["http://127.0.0.1:5000"]
             EOF
