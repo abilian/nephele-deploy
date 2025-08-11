@@ -180,68 +180,110 @@ def step_3_deploy_and_wait_for_karmada_control_plane():
 
 def step_4_join_member_clusters():
     """
-    Step 4: Joins member clusters, ensuring a consistent and ready state for all.
+    Step 4: Joins member clusters if they are not already registered,
+    then waits for all of them to be ready.
     """
     print("\n--- 4. Joining member clusters to the control plane ---")
+
+    # First, join any clusters that are not already present and ready.
     for member in MEMBER_CLUSTERS:
-        print_color(colors.YELLOW, f"--> Processing cluster: {member}")
+        if not is_cluster_registered_and_ready(member):
+            join_cluster(member)
 
-        check_join_cmd = ["karmadactl", "get", "cluster", member, "-o", "json"]
-        result = run_command(check_join_cmd, check=False, env={"KUBECONFIG": KARMADA_KUBECONFIG}, capture_output=True)
+    wait_for_all_clusters_ready()
 
-        cluster_exists = result.returncode == 0
-        cluster_ready = False
-        if cluster_exists:
-            try:
-                cluster_info = json.loads(result.stdout)
-                for condition in cluster_info.get('status', {}).get('conditions', []):
-                    if condition.get('type') == 'Ready' and condition.get('status') == 'True':
-                        cluster_ready = True
-                        break
-            except (json.JSONDecodeError, KeyError):
-                pass
+    print("All member clusters have been joined and verified.")
 
-        if cluster_exists and cluster_ready:
-            print_color(colors.GREEN, f"Cluster '{member}' is already registered and Ready. Skipping.")
-            continue
 
-        member_config_path = os.path.join(CONFIG_FILES_DIR, f"{member}.config")
+def is_cluster_registered_and_ready(member_name):
+    """
+    Checks if a cluster is registered with Karmada and in a Ready state.
+    Returns True if ready, False otherwise.
+    """
 
-        print(f"    - Ensuring cluster object for '{member}' is present and up-to-date...")
-        join_command = ["karmadactl", "join", member, "--cluster-kubeconfig", member_config_path]
-        run_command(join_command, env={"KUBECONFIG": KARMADA_KUBECONFIG})
+    print(f"--> Checking status of cluster '{member_name}'...")
+    check_cmd = ["karmadactl", "get", "cluster", member_name, "-o", "json"]
+    result = run_command(
+        check_cmd,
+        check=False,
+        env={"KUBECONFIG": KARMADA_KUBECONFIG},
+        capture_output=True,
+    )
 
-        print(f"    - Creating bootstrap token for agent deployment...")
-        token_create_cmd = [
-            "karmadactl", "token", "create",
-            "--kubeconfig", KARMADA_KUBECONFIG,
-            "--print-register-command"
+    if result.returncode != 0:
+        print(f"Cluster '{member_name}' is not registered.")
+        return False
+
+    try:
+        cluster_info = json.loads(result.stdout)
+        for condition in cluster_info.get("status", {}).get("conditions", []):
+            if condition.get("type") == "Ready" and condition.get("status") == "True":
+                print_color(
+                    colors.GREEN,
+                    f"Cluster '{member_name}' is already registered and Ready.",
+                )
+                return True
+    except (json.JSONDecodeError, KeyError):
+        pass  # If JSON is invalid, it's not ready
+
+    print_color(colors.YELLOW, f"Cluster '{member_name}' exists but is not yet Ready.")
+    return False
+
+
+def join_cluster(member_name):
+    """
+    Joins a single member cluster to the Karmada control plane using Push mode.
+    """
+    print_color(colors.YELLOW, f"--> Joining cluster: {member_name}")
+    member_config_path = os.path.join(CONFIG_FILES_DIR, f"{member_name}.config")
+
+    join_command = [
+        "karmadactl",
+        "join",
+        member_name,
+        "--cluster-kubeconfig",
+        member_config_path,
+        # # This flag is still crucial to tell the agent where to pull its image from.
+        # "--private-image-registry", HOST_REGISTRY
+    ]
+    run_command(join_command, env={"KUBECONFIG": KARMADA_KUBECONFIG})
+
+
+def wait_for_all_clusters_ready(timeout_seconds=60):
+    """
+    Waits for all member clusters to report a Ready status.
+    Exits with an error if the timeout is reached.
+    """
+    print_color(
+        colors.YELLOW,
+        f"\n--> Waiting up to {timeout_seconds} seconds for all clusters to become Ready...",
+    )
+    start_time = time.time()
+    while time.time() - start_time < timeout_seconds:
+        ready_clusters = [
+            member
+            for member in MEMBER_CLUSTERS
+            if is_cluster_registered_and_ready(member)
         ]
-        result = run_command(token_create_cmd, capture_output=True)
-        register_command_str = result.stdout.strip()
 
-        print(f"    - Deploying/updating karmada-agent on '{member}' using the token...")
+        if len(ready_clusters) == len(MEMBER_CLUSTERS):
+            print_color(colors.GREEN, "\n✅ All member clusters are now Ready.")
+            return
 
-        # CORRECTED: Build the command list correctly.
-        base_command = ["karmadactl", "--kubeconfig", member_config_path]
+        print(
+            f"Waiting... ({len(ready_clusters)}/{len(MEMBER_CLUSTERS)} clusters ready). Retrying in 10 seconds."
+        )
+        time.sleep(10)
 
-        # The token create command gives us "karmadactl register <server> --token <token> ..."
-        # We must skip the first word ("karmadactl")
-        register_args = register_command_str.split()[1:]
-
-        final_command = base_command + register_args
-
-        # CORRECTED: Use the '--karmada-agent-image' flag, which is valid for the 'register' command.
-        agent_image_for_join = f"{HOST_REGISTRY}/karmada-agent:v{KARMADA_VERSION}"
-        final_command.extend([
-            "--cluster-name", member,
-            "--karmada-agent-image", agent_image_for_join
-        ])
-
-        run_command(final_command)
-
-    print("All member clusters have been joined and configured.")
-
+    print_color(
+        colors.RED, "\nFATAL: Timed out waiting for all clusters to become Ready."
+    )
+    print_color(colors.YELLOW, "Use 'kubectl get clusters' to see the current status.")
+    print_color(
+        colors.YELLOW,
+        "To debug a non-ready cluster, check the 'karmada-agent' pod logs in its 'karmada-system' namespace.",
+    )
+    sys.exit(1)
 
 
 if __name__ == "__main__":
