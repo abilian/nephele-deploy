@@ -41,11 +41,14 @@ member3   v1.31.2   Pull   True    58m
 
 """
 
+from textwrap import dedent
+
+from pyinfra import host
+from pyinfra.facts.hardware import Ipv4Addrs
 from pyinfra.operations import files, python, server
 
 from common import log_callback
 from constants import GITS
-
 
 KARMADA_VERSION = "1.14.2"
 RELEASE = "release-1.14"
@@ -102,6 +105,9 @@ def install_karmada_clusters() -> None:
     #     "https://raw.githubusercontent.com/karmada-io/"
     #     "karmada/master/hack/install-cli.sh"
     # )
+    ips = host.get_fact(Ipv4Addrs)
+    eth0 = ips["eth0"][0]
+
     files.file(
         name="Remove old kubectl-karmada CLI",
         path="/usr/local/bin/kubectl-karmada",
@@ -133,6 +139,67 @@ def install_karmada_clusters() -> None:
         name="Show kubectl-karmada version",
         function=log_callback,
         result=result,
+    )
+
+    server.shell(
+        name="patch lind config",
+        commands=[
+            dedent(f"""\
+            cd {GITS}/karmada/artifacts/kindClusterConfig/
+
+            git reset --hard HEAD
+
+            cat <<EOF > member1.yaml
+            kind: Cluster
+            apiVersion: "kind.x-k8s.io/v1alpha4"
+            networking:
+              podSubnet: "10.10.0.0/16"
+              serviceSubnet: "10.11.0.0/16"
+            nodes:
+              - role: control-plane
+            containerdConfigPatches:
+            - |-
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{eth0}:5000"]
+                endpoint = ["http://{eth0}:5000"]
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."127.0.0.1:5000"]
+                endpoint = ["http://127.0.0.1:5000"]
+            EOF
+
+
+            cat <<EOF > member2.yaml
+            kind: Cluster
+            apiVersion: "kind.x-k8s.io/v1alpha4"
+            networking:
+              podSubnet: "10.12.0.0/16"
+              serviceSubnet: "10.13.0.0/16"
+            nodes:
+              - role: control-plane
+            containerdConfigPatches:
+            - |-
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{eth0}:5000"]
+                endpoint = ["http://{eth0}:5000"]
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."127.0.0.1:5000"]
+                endpoint = ["http://127.0.0.1:5000"]
+            EOF
+
+            cat <<EOF > member3.yaml
+            kind: Cluster
+            apiVersion: "kind.x-k8s.io/v1alpha4"
+            networking:
+              podSubnet: "10.14.0.0/16"
+              serviceSubnet: "10.15.0.0/16"
+            nodes:
+              - role: control-plane
+            containerdConfigPatches:
+            - |-
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{eth0}:5000"]
+                endpoint = ["http://{eth0}:5000"]
+              [plugins."io.containerd.grpc.v1.cri".registry.mirrors."127.0.0.1:5000"]
+                endpoint = ["http://127.0.0.1:5000"]
+            EOF
+
+            """),
+        ],
     )
 
     server.shell(

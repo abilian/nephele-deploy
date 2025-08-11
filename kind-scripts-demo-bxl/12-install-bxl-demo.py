@@ -10,7 +10,9 @@ Warning: connection as user root.
 pyinfra -y -v --user root ${SERVER_NAME} 12-install-bxl-demo.py
 """
 
-from pyinfra.operations import files, python, server
+from pyinfra import host
+from pyinfra.facts.hardware import Ipv4Addrs
+from pyinfra.operations import python, server
 
 from common import log_callback
 from constants import GITS
@@ -39,6 +41,8 @@ def main() -> None:
 
 
 def configure_demo_addresses() -> None:
+    ips = host.get_fact(Ipv4Addrs)
+    eth0 = ips["eth0"][0]
     server.shell(
         name="Replace IP in smo demo files",
         commands=[
@@ -52,11 +56,11 @@ def configure_demo_addresses() -> None:
                 cd {DEMO}/hdag
                 perl -pi -e 's/10.0.3.53/{INTERNAL_IP}/g' hdag.yaml
                 cd {DEMO}/image-compression-vo/templates
-                perl -pi -e 's/10.0.3.53/{INTERNAL_IP}/g' deployment.yaml
+                perl -pi -e 's/10.0.3.53/{eth0}/g' deployment.yaml
                 cd {DEMO}/image-detection/templates
-                perl -pi -e 's/10.0.3.53/{INTERNAL_IP}/g' deployment.yaml
+                perl -pi -e 's/10.0.3.53/{eth0}/g' deployment.yaml
                 cd {DEMO}/noise-reduction/templates
-                perl -pi -e 's/10.0.3.53/{INTERNAL_IP}/g' deployment.yaml
+                perl -pi -e 's/10.0.3.53/{eth0}/g' deployment.yaml
 
                 cd {DEMO}
                 perl -pi -e 's;REGISTRY_URL=.*;REGISTRY_URL="http://{INTERNAL_IP}:5000";g' create-existing-artifact.sh

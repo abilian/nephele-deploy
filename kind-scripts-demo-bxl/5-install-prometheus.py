@@ -18,10 +18,10 @@ pyinfra -y -vv --user root ${SERVER_NAME} 5-install-prometheus.py
 """
 
 import io
+
 from pyinfra.operations import files, python, server
 
 from common import log_callback
-
 
 # Note: Replace 127.0.0.1 with the actual IP address of your SMO service
 
