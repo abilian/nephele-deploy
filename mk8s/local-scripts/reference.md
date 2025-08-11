@@ -1,4 +1,6 @@
-## Karmada CLI Reference
+# Karmada CLI Reference
+
+## karmadactl token create
 
 ```text
 root@nephele-sf-mk8s:~/local-scripts# karmadactl token create --help
@@ -39,6 +41,88 @@ Usage:
 Use "karmadactl options" for a list of global command-line options (applies to all commands).
 ```
 
+## karmadactl register
+
+```text
+root@nephele-sf-mk8s:~# karmadactl register --help
+Register a cluster to Karmada control plane with Pull mode.
+
+Examples:
+  # Register cluster into karmada control plane with Pull mode.
+  # If '--cluster-name' isn't specified, the cluster of current-context will be used by default.
+  karmadactl register [karmada-apiserver-endpoint] --cluster-name=<CLUSTER_NAME> --token=<TOKEN>
+--discovery-token-ca-cert-hash=<CA-CERT-HASH>
+
+  # UnsafeSkipCAVerification allows token-based discovery without CA verification via CACertHashes. This can weaken
+  # the security of register command since other clusters can impersonate the control-plane.
+  karmadactl register [karmada-apiserver-endpoint] --token=<TOKEN>  --discovery-token-unsafe-skip-ca-verification=true
+
+Options:
+    --cert-expiration-seconds=31536000:
+	The expiration time of certificate.
+
+    --cluster-name='':
+	The name of member cluster in the control plane, if not specified, the cluster of current-context is used by
+	default.
+
+    --cluster-namespace='karmada-cluster':
+	Namespace in the control plane where member cluster secrets are stored.
+
+    --cluster-provider='':
+	Provider of the joining cluster. The Karmada scheduler can use this information to spread workloads across
+	providers for higher availability.
+
+    --cluster-region='':
+	The region of the joining cluster. The Karmada scheduler can use this information to spread workloads across
+	regions for higher availability.
+
+    --cluster-zones=[]:
+	The zones of the joining cluster. The Karmada scheduler can use this information to spread workloads across
+	zones for higher availability.
+
+    --context='':
+	Name of the cluster context in kubeconfig file.
+
+    --discovery-timeout=5m0s:
+	The timeout to discovery karmada apiserver client.
+
+    --discovery-token-ca-cert-hash=[]:
+	For token-based discovery, validate that the root CA public key matches this hash (format: "<type>:<value>").
+
+    --discovery-token-unsafe-skip-ca-verification=false:
+	For token-based discovery, allow joining without --discovery-token-ca-cert-hash pinning.
+
+    --dry-run=false:
+	Run the command in dry-run mode, without making any server requests.
+
+    --enable-cert-rotation=false:
+	Enable means controller would rotate certificate for karmada-agent when the certificate is about to expire.
+
+    --karmada-agent-image='docker.io/karmada/karmada-agent:v1.14.2':
+	Karmada agent image.
+
+    --karmada-agent-replicas=1:
+	Karmada agent replicas.
+
+    --kubeconfig='':
+	Path to the kubeconfig file of member cluster.
+
+    -n, --namespace='karmada-system':
+	Namespace the karmada-agent component deployed.
+
+    --proxy-server-address='':
+	Address of the proxy server that is used to proxy to the cluster.
+
+    --token='':
+	For token-based discovery, the token used to validate cluster information fetched from the API server.
+
+Usage:
+  karmadactl register [karmada-apiserver-endpoint] [options]
+
+Use "karmadactl options" for a list of global command-line options (applies to all commands).
+```
+
+## karmadactl options
 ```text
 root@nephele-sf-mk8s:~/local-scripts# karmadactl options
 The following options can be passed to any command:
