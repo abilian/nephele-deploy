@@ -188,8 +188,24 @@ def find_demo0() -> None:
             kubectl config use-context member1
 
             pod_name=$(kubectl get pods -n demo0 -o jsonpath='{.items[0].metadata.name}')
-            kubectl port-forward -n demo0 8080:8080 &
-            curl http://localhost:8080
+            kubectl wait --for=condition=Ready pod/$pod_name -n demo0 --timeout=120s
+            kubectl port-forward -n demo0 $pod_name 8080:8080 &
+            sleep 2
+            counter=0
+            code=""
+            while [ $counter -lt 120 ]; do
+                code=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080")
+                if [ "$code" -eq 200 ]; then
+                    break
+                fi
+                counter=$((counter + 2))
+                sleep 2
+            done
+
+            echo "curl -s http://localhost:8080"
+            curl -s http://localhost:8080
+            echo
+
         """
         ],
         _get_pty=True,
