@@ -8,7 +8,7 @@ pyinfra -y -v --user root ${SERVER_NAME} 14-deploy-demo-2
 
 from pyinfra import host
 from pyinfra.facts.hardware import Ipv4Addrs
-from pyinfra.operations import python, server
+from pyinfra.operations import files, python, server
 
 from common import log_callback
 from constants import GITS
@@ -46,6 +46,7 @@ def make_clusters_list_command() -> str:
 
 def main() -> None:
     clean_installed_graphs()
+    change_hdag_file()
     prepare_gpu_offloading()
     deploy_on_smo()
     check_graph_list()
@@ -64,6 +65,15 @@ def clean_installed_graphs() -> None:
             _get_pty=True,
             _shell_executable="/bin/bash",
         )
+
+
+def change_hdag_file() -> None:
+    files.put(
+        name="Put hdag file",
+        src="hdag.yaml",
+        dest="/root/gits/h3ni-demos/2-gpu-offloading-demo/hdag.yaml",
+        mode="644",
+    )
 
 
 def prepare_gpu_offloading() -> None:

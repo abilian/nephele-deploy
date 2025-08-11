@@ -1,0 +1,60 @@
+hdaGraph:
+    imVersion: 0.4.0
+    id: gpu-offloading-graph
+    version: '1.0.0'
+    designer: Abilian
+    description: A demo application to showcase GPU-based placement.
+    hdaGraphIntent:
+        useStaticPlacement: True
+        security:
+            enabled: False
+        highAvailability:
+            enabled: False
+        highPerformance:
+            enabled: False
+        energyEfficiency:
+            enabled: False
+    services:
+        - id: web-frontend
+          deployment:
+              trigger:
+                  auto:
+                      dependencies: []
+              intent:
+                  network:
+                      # This service needs to connect to the ml-inference service
+                      connectionPoints: ['ml-inference']
+                  compute:
+                      cpu: 'small'
+                      ram: 'small'
+                      gpu:
+                          # Explicitly does NOT need a GPU
+                          enabled: False
+                  coLocation: []
+                  connectionPoints: []
+                  metrics: []
+          artifact:
+              ociImage: 'oci://127.0.0.1:5000/demo2/web-frontend'
+              ociConfig: { type: App, implementer: HELM }
+              ociRun: { name: HELM, version: v3 }
+              valuesOverwrite: {}
+
+        - id: ml-inference
+          deployment:
+              trigger:
+                  auto:
+                      dependencies: []
+              intent:
+                  network:
+                      connectionPoints: []
+                  compute:
+                      cpu: 'medium'
+                      ram: 'medium'
+                      gpu:
+                          # Explicitly REQUIRES a GPU
+                          enabled: True
+          artifact:
+              ociImage: 'oci://127.0.0.1:5000/demo2/ml-inference'
+              ociConfig: { type: App, implementer: HELM }
+              ociRun: { name: HELM, version: v3 }
+              valuesOverwrite: {}
