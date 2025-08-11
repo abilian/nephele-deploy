@@ -54,7 +54,9 @@ def main():
     run_script("./1-create-clusters-on-lxd.py")
     run_script("./2-setup-karmada.py")
     run_script("./3-check-karmada.py")
-    run_script("./4-nginx-demo-alt.py")
+    run_script("./4-nginx-demo.py")
+    run_script("./5-flask-demo-1.py")
+    run_script("./5-flask-demo-2.py")
 
     # run_strip("./8-remove-karmada.py")
     # run_strip("./9-tidy-up.py")

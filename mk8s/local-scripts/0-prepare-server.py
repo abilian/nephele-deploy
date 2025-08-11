@@ -33,6 +33,7 @@ def main():
     install_docker()
     install_kubectl()
     install_karmada_tools()
+    run_command(["snap", "install", "--classic", "helm"])
     if step_6_verify_and_repair_network_setup():
         print_color(
             colors.GREEN,

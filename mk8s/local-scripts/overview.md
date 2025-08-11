@@ -4,8 +4,6 @@ The system is a **"cluster of clusters."** It consists of a central **Host Clust
 
 This entire architecture runs on a single physical (or virtual) server, using layers of containerization to achieve isolation.
 
----
-
 ### Key Subsystems and Components
 
 Here is a breakdown of the major subsystems and how they interact:
@@ -78,12 +76,12 @@ This is the most critical part of the setup.
 | +-------------------------------------------------------------+ |
 | | Host MicroK8s Cluster (Listens on 127.0.0.1:16443)          | |
 | | +---------------------------------------------------------+ | |
-| | | Namespace: karmada-system                             | | |
-| | | +-------------------+  +----------------------------+ | | |
-| | | | Karmada Control   |  | Karmada Aggregated         | | | |
-| | | | Plane Pods        |--| APIServer (provides       | | | |
-| | | | (Scheduler, etc.) |  | cluster.karmada.io API)    | | | |
-| | | +-------------------+  +----------------------------+ | | |
+| | | Namespace: karmada-system                             | | | |
+| | | +-------------------+  +----------------------------+ | | | |
+| | | | Karmada Control   |  | Karmada Aggregated         | | | | |
+| | | | Plane Pods        |--| APIServer (provides        | | | | |
+| | | | (Scheduler, etc.) |  | cluster.karmada.io API)    | | | | |
+| | | +-------------------+  +----------------------------+ | | | |
 | | +---------------------------------------------------------+ | |
 | +-------------------------------------------------------------+ |
 |                                                                 |
@@ -94,7 +92,7 @@ This is the most critical part of the setup.
 | | IP: 10.x.y.A            | | IP: 10.x.y.B            | | IP: 10.x.y.C            |
 | | +---------------------+ | | +---------------------+ | | +---------------------+ |
 | | | MicroK8s            | | | | MicroK8s            | | | | MicroK8s            | |
-| | | API @ 127.0.0.1:16443 | | | | API @ 127.0.0.1:16443 | | | | API @ 127.0.0.1:16443 | |
+| | | API @ 127.0.0.1:16443 | | | API @ 127.0.0.1:16443 | | | API @ 127.0.0.1:16443 | |
 | | +--------+------------+ | | +--------+------------+ | | +--------+------------+ |
 | |          ^              | |          ^              | |          ^              |
 | +----------|--------------+ +----------|--------------+ +----------|--------------+
@@ -102,6 +100,6 @@ This is the most critical part of the setup.
 |     LXD Port Forwarding                |                           |
 | localhost:16441                        |                           |
 |                                localhost:16442                 localhost:16444
-|                                                                 |
-+-----------------------------------------------------------------+
+|                                                                    |
++--------------------------------------------------------------------+
 ```
