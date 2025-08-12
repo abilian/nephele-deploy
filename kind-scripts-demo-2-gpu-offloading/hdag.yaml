@@ -1,60 +1,80 @@
 hdaGraph:
-    imVersion: 0.4.0
-    id: gpu-offloading-graph
-    version: '1.0.0'
-    designer: Abilian
-    description: A demo application to showcase GPU-based placement.
-    hdaGraphIntent:
-        useStaticPlacement: True
-        security:
-            enabled: False
-        highAvailability:
-            enabled: False
-        highPerformance:
-            enabled: False
-        energyEfficiency:
-            enabled: False
-    services:
-        - id: web-frontend
-          deployment:
-              trigger:
-                  auto:
-                      dependencies: []
-              intent:
-                  network:
-                      # This service needs to connect to the ml-inference service
-                      connectionPoints: ['ml-inference']
-                  compute:
-                      cpu: 'small'
-                      ram: 'small'
-                      gpu:
-                          # Explicitly does NOT need a GPU
-                          enabled: False
-                  coLocation: []
-                  connectionPoints: []
-                  metrics: []
-          artifact:
-              ociImage: 'oci://127.0.0.1:5000/demo2/web-frontend'
-              ociConfig: { type: App, implementer: HELM }
-              ociRun: { name: HELM, version: v3 }
-              valuesOverwrite: {}
+  imVersion: 0.4.0
+  id: gpu-offloading-graph
+  version: "0.1.0"
+  designer: Abilian
+  description: A demo application to showcase GPU-based placement.
+  hdaGraphIntent:
+    useStaticPlacement: True
+    security:
+      enabled: False
+    highAvailability:
+      enabled: False
+    highPerformance:
+      enabled: False
+    energyEfficiency:
+      enabled: False
+  services:
+    - id: web-frontend
+      deployment:
+        trigger:
+          auto:
+            dependencies: []
+        intent:
+          network:
+            deviceProximity: # Only relevant for the VO
+              enabled: False # If true, enable TSN
+            latencies:
+              - connectionPoint: "" # Relevant for the next service in the application graph
+                qos: "best-effort"
+                # "ultralow"    - under 10ms
+                # "low"         - 1hop maximum
+                # "best-effort" - default value
+            # This service needs to connect to the ml-inference service
+            connectionPoints: ["ml-inference"]
+          compute:
+            storage: "small"
+            cpu: "small"
+            ram: "small"
+            gpu:
+              # Explicitly does NOT need a GPU
+              enabled: False
+          coLocation: []
+          connectionPoints: []
+          metrics: []
+      artifact:
+        ociImage: "oci://127.0.0.1:5000/demo2/web-frontend"
+        ociConfig: { type: App, implementer: HELM }
+        ociRun: { name: HELM, version: v3 }
+        valuesOverwrite: {}
 
-        - id: ml-inference
-          deployment:
-              trigger:
-                  auto:
-                      dependencies: []
-              intent:
-                  network:
-                      connectionPoints: []
-                  compute:
-                      cpu: 'medium'
-                      ram: 'medium'
-                      gpu:
-                          # Explicitly REQUIRES a GPU
-                          enabled: True
-          artifact:
-              ociImage: 'oci://127.0.0.1:5000/demo2/ml-inference'
-              ociConfig: { type: App, implementer: HELM }
-              ociRun: { name: HELM, version: v3 }
-              valuesOverwrite: {}
+    - id: ml-inference
+      deployment:
+        trigger:
+          auto:
+            dependencies: []
+        intent:
+          network:
+            connectionPoints: []
+            deviceProximity: # Only relevant for the VO
+              enabled: False # If true, enable TSN
+            latencies:
+              - connectionPoint: "" # Relevant for the next service in the application graph
+                qos: "best-effort"
+                # "ultralow"    - under 10ms
+                # "low"         - 1hop maximum
+                # "best-effort" - default value
+          compute:
+            storage: "small"
+            cpu: "medium"
+            ram: "medium"
+            gpu:
+              # Explicitly REQUIRES a GPU
+              enabled: True
+          coLocation: []
+          connectionPoints: []
+      artifact:
+        ociImage: "oci://127.0.0.1:5000/demo2/ml-inference"
+        ociConfig: { type: App, implementer: HELM }
+        ociRun: { name: HELM, version: v3 }
+        valuesOverwrite: {}

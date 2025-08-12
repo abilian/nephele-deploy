@@ -56,7 +56,7 @@ def main() -> None:
 
 
 def clean_installed_graphs() -> None:
-    for name in ("hello-world-graph", "image-detection-graph"):
+    for name in ("hello-world-graph", "image-detection-graph", "gpu-offloading-graph"):
         cmd = make_graph_delete_cmd(name)
         server.shell(
             name=f"Remove prior known graph {name}",
@@ -71,7 +71,7 @@ def change_hdag_file() -> None:
     files.put(
         name="Put hdag file",
         src="hdag.yaml",
-        dest="/root/gits/h3ni-demos/2-gpu-offloading-demo/hdag.yaml",
+        dest="/root/gits/h3ni-demos/2-gpu-offloading-demo/hdag/hdag.yaml",
         mode="644",
     )
 
