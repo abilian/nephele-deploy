@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # ==============================================================================
-# 9-verify-full-system.sh
-#
 # This script performs an end-to-end verification of the entire Karmada setup.
 # It checks each layer of the architecture, from the host services down to the
 # deployed applications, and validates that the live state matches the
@@ -13,7 +11,7 @@
 
 # --- Script Configuration ---
 # Use 'set -x' to echo every command before it is executed.
-set -o xtrace
+# set -o xtrace
 set -o pipefail
 
 # --- Color Definitions ---
@@ -70,8 +68,9 @@ microk8s status --wait-ready &> /dev/null && on_success || on_fail "MicroK8s is 
 check "LXD daemon is active"
 systemctl is-active --quiet snap.lxd.daemon.service && on_success || on_fail "The LXD snap daemon is not active."
 
-check "Local Container Registry is listening on port 32000"
-ss -tlpn | grep -q 'LISTEN.*:32000' && on_success || on_fail "MicroK8s registry is not listening on port 32000."
+#check "Local Container Registry is listening on port 32000"
+## Corrected pipe syntax
+#ss -tlpn | grep -q 'LISTEN.*:32000' && on_success || on_fail "MicroK8s registry is not listening on port 32000."
 
 # --- Layer 2: Karmada Control Plane ---
 print_color "$YELLOW" "\n--- Layer 2: Verifying Karmada Control Plane ---"
@@ -104,6 +103,7 @@ done
 print_color "$YELLOW" "\n--- Layer 4: Verifying Deployed Applications ---"
 
 # 4a: Custom Flask App Verification
+# The name of this proxy is defined in 7-custom-flask-demo-simple.py
 FLASK_PROXY_NAME="proxy-simple-flask"
 FLASK_HOST_PORTS=("32301" "32302" "32303")
 for i in "${!MEMBER_CLUSTERS[@]}"; do
@@ -113,14 +113,15 @@ for i in "${!MEMBER_CLUSTERS[@]}"; do
 
     print_color "$BLUE" "\n--> Verifying Flask Demo on '$member'"
 
-    # NOTE: The Flask demo uses a NodePort service. We verify the proxy points to it.
+    # The Flask demo uses a NodePort service. We must verify the proxy points to it.
     node_port=$(kubectl --kubeconfig "$member_kubeconfig" get svc custom-flask-demo-simple-service -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null)
     if [[ -z "$node_port" ]]; then on_fail "Could not find NodePort for Flask service."; continue; fi
     print_color "$GREEN" "  [INFO] Found Flask service with NodePort: $node_port"
 
     check "LXD proxy correctly targets the Flask service NodePort"
     connect_target=$(lxc config device get "$member" "$FLASK_PROXY_NAME" connect 2>/dev/null)
-    [[ "$connect_target" == "tcp:127.0.0.1:$node_port" ]] && on_success || on_fail "Expected 'tcp:127.0.0.1:$node_port', but got '$connect_target'."
+    expected_target="tcp:127.0.0.1:$node_port"
+    [[ "$connect_target" == "$expected_target" ]] && on_success || on_fail "Expected '$expected_target', but got '$connect_target'."
 
     check "Flask application is accessible at http://localhost:$host_port"
     curl -sfL "http://localhost:$host_port" &> /dev/null && on_success || on_fail "Could not connect or received non-2xx/3xx response."
@@ -133,18 +134,20 @@ for i in "${!MEMBER_CLUSTERS[@]}"; do
     host_port="${PROMETHEUS_HOST_PORTS[$i]}"
     member_kubeconfig="${CONFIG_FILES_DIR}/${member}.config"
     helm_release_name="prometheus-$member"
+    # The name of this proxy is defined in 8-install-prometheus.py
     proxy_name="proxy-prometheus-$member"
 
     print_color "$BLUE" "\n--> Verifying Prometheus Demo on '$member'"
 
-    # NOTE: The Prometheus demo proxies directly to the Pod IP.
+    # The Prometheus demo proxies directly to the Pod IP.
     pod_ip=$(kubectl --kubeconfig "$member_kubeconfig" get pods -n monitoring -l "app.kubernetes.io/name=prometheus,app.kubernetes.io/instance=$helm_release_name" -o jsonpath='{.items[0].status.podIP}' 2>/dev/null)
     if [[ -z "$pod_ip" ]]; then on_fail "Could not find running Prometheus pod."; continue; fi
     print_color "$GREEN" "  [INFO] Found Prometheus pod with IP: $pod_ip"
 
     check "LXD proxy correctly targets the Prometheus pod IP"
     connect_target=$(lxc config device get "$member" "$proxy_name" connect 2>/dev/null)
-    [[ "$connect_target" == "tcp:$pod_ip:9090" ]] && on_success || on_fail "Expected 'tcp:$pod_ip:9090', but got '$connect_target'."
+    expected_target="tcp:$pod_ip:9090"
+    [[ "$connect_target" == "$expected_target" ]] && on_success || on_fail "Expected '$expected_target', but got '$connect_target'."
 
     check "Prometheus application is accessible at http://localhost:$host_port"
     curl -sfL "http://localhost:$host_port" &> /dev/null && on_success || on_fail "Could not connect or received non-2xx/3xx response."

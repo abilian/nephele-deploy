@@ -302,7 +302,8 @@ def main():
         )
 
     finally:
-        cleanup_demo_resources(created_files)
+        pass
+        # cleanup_demo_resources(created_files)
 
 
 if __name__ == "__main__":

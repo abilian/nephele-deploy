@@ -364,7 +364,7 @@ def main():
             print_color(
                 colors.RED, "\nOne or more steps failed. Proceeding with cleanup..."
             )
-        cleanup_demo_resources(created_files, image_tar_path)
+        # cleanup_demo_resources(created_files, image_tar_path)
 
 
 if __name__ == "__main__":
