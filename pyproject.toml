@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "asciinema>=2.4.0",
     "devtools>=0.12.2",
     "hcloud>=2.5.2",
     "isort>=6.0.1",
