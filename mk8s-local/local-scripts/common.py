@@ -10,6 +10,7 @@ class colors:
     RED = "\033[91m"
     YELLOW = "\033[93m"
     BLUE = "\033[94m"
+    GRAY = "\033[90m"
     ENDC = "\033[0m"
 
 
