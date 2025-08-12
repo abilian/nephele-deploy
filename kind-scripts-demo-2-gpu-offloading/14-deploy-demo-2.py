@@ -94,6 +94,8 @@ def prepare_gpu_offloading() -> None:
 
             cd {DEMO}/web-frontend/templates
             perl -pi -e 's/127.0.0.1/{eth0}/g' deployment.yaml
+            cd {DEMO}/ml-inference/templates
+            perl -pi -e 's/127.0.0.1/{eth0}/g' deployment.yaml
             """
         ],
         _get_pty=True,
@@ -101,14 +103,36 @@ def prepare_gpu_offloading() -> None:
     )
 
     server.shell(
-        name="Prepare gpu offloading graph",
+        name="Build and push images and artifacts",
         commands=[
             f"""
             cd {TOP_DIR}
             . .venv/bin/activate
 
             cd {DEMO}
-            inv prepare
+            rm -fr dist
+            mkdir dist
+            rm -fr build
+            mkdir build
+
+            docker build -t "127.0.0.1:5000/web-frontend-0.1.0" src/web-frontend
+            docker build -t "127.0.0.1:5000/ml-inference-0.1.0" src/ml-inference
+
+            docker push "127.0.0.1:5000/web-frontend-0.1.0"
+            docker push "127.0.0.1:5000/ml-inference-0.1.0"
+
+            cp -a hdag build/
+            cp -a web-frontend build/
+            cp -a ml-inference build/
+
+            hdarctl package tar -d dist build/hdag
+            hdarctl package tar -d dist build/web-frontend
+            hdarctl package tar -d dist build/ml-inference
+
+            hdarctl push dist/gpu-offloading-graph-0.1.0.tar.gz http://127.0.0.1:5000/demo2
+            hdarctl push dist/web-frontend-0.1.0.tar.gz http://127.0.0.1:5000/demo2
+            hdarctl push dist/ml-inference-0.1.0.tar.gz http://127.0.0.1:5000/demo2
+
             """
         ],
         _get_pty=True,
