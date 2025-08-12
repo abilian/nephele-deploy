@@ -26,7 +26,6 @@ REPO = f"{GITS}/{DEMO_DIR}"
 SMO_REPO = f"{GITS}/{SMO_DIR}"
 
 
-
 def main() -> None:
     make_git_directory()
     pull_smo_monorepo()
@@ -48,9 +47,12 @@ def pull_smo_monorepo() -> None:
             f"""
             cd {SMO_REPO}
             git clean -fxd
+            git reset --hard HEAD
             git pull
             """,
         ],
+        _get_pty=True,
+        _shell_executable="/bin/bash",
     )
 
 
@@ -62,9 +64,12 @@ def pull_h3ni_demo() -> None:
             f"""
             cd {REPO}
             git clean -fxd
+            git reset --hard HEAD
             git pull
             """,
         ],
+        _get_pty=True,
+        _shell_executable="/bin/bash",
     )
 
     server.shell(
@@ -77,6 +82,8 @@ def pull_h3ni_demo() -> None:
             uv sync
             """
         ],
+        _get_pty=True,
+        _shell_executable="/bin/bash",
     )
 
 
