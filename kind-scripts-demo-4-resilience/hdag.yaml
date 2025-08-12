@@ -1,0 +1,72 @@
+hdaGraph:
+  imVersion: 0.4.0
+  id: resilience-critical-graph
+  version: "0.1.0"
+  designer: H3NI Project
+  description: A critical service demonstrating SMO resilience and failover.
+
+  hdaGraphIntent:
+    useStaticPlacement: True
+    security:
+      enabled: False
+    highPerformance:
+      enabled: False
+    energyEfficiency:
+      enabled: False
+    # Global intent for the graph
+    highAvailability:
+      enabled: True
+      # This tells SMO the overall goal for services marked as critical within this graph
+      # This might mean SMO tries to ensure services are on different failure domains.
+      # For the specific service below, we'll be more explicit.
+  services:
+    - id: critical-service # Must match the Helm chart name
+      deployment:
+        trigger:
+          auto:
+            dependencies: []
+        intent:
+          network:
+            deviceProximity: # Only relevant for the VO
+              enabled: False # If true, enable TSN
+            latencies:
+              - connectionPoint: "" # Relevant for the next service in the application graph
+                qos: "best-effort"
+                # "ultralow"    - under 10ms
+                # "low"         - 1hop maximum
+                # "best-effort" - default value
+            # This service needs to connect to the ml-inference service
+            connectionPoints: []
+          # H3NI HYPOTHETICAL EXTENSION for SMO's intent model
+          #highAvailability:
+          #  enabled: True
+          # SMO needs to place instances of this service such that
+          # 'replicasAcrossClusters' distinct, healthy clusters are running it.
+          # The actual replica count *per cluster* might be 1, managed by the Helm chart.
+          #  replicasAcrossClusters: 2
+          # Optional: recoveryPolicy: "automatic" | "manual_trigger"
+          #  "automatic" -> SMO tries to recover to desired state on failure.
+          #  "manual_trigger" -> Waits for GET /graphs/{name}/placement.
+          #  For this demo, we can assume manual_trigger to show the steps.
+          # recoveryPolicy: "manual_trigger"
+          compute:
+            cpu: "small"
+            ram: "small"
+            gpu: { enabled: False }
+            storage: "small"
+          coLocation: []
+          connectionPoints: []
+          metrics: []
+
+      artifact:
+        ociImage: "oci://127.0.0.1:5000/demo4/critical-service"
+        ociConfig:
+          type: App
+          implementer: HELM
+        ociRun:
+          name: HELM
+          version: v3
+        # valuesOverwrite would be populated by SMO's *initial* placement decision.
+        # For HA, SMO would populate clustersAffinity with two initial clusters,
+        # and ensure serviceImportClusters allow access from an ingress or client.
+        valuesOverwrite: {}
