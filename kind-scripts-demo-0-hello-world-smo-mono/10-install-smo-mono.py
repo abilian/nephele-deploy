@@ -111,13 +111,13 @@ def init_smo() -> None:
         name="Init smo",
         commands=[
             f"""
-                cd {REPO}
-                . .venv/bin/activate
+            cd {REPO}
+            . .venv/bin/activate
 
-                export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                kubectl config use-context karmada-apiserver
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context karmada-apiserver
 
-                {SMO_CLI} init
+            {SMO_CLI} init
             """
         ],
         _shell_executable="/bin/bash",
@@ -128,25 +128,25 @@ def init_smo() -> None:
         name="Replace IPs in smo config",
         commands=[
             f"""
-                cd {REPO}
-                . .venv/bin/activate
+            cd {REPO}
+            . .venv/bin/activate
 
-                # export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                # kubectl config use-context karmada-apiserver
-                # kubectl get services --all-namespaces
+            # export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            # kubectl config use-context karmada-apiserver
+            # kubectl get services --all-namespaces
 
-                # this is the cluster NodePort ip:
-                # prom_ip=$(kubectl get service prometheus-kube-prometheus-prometheus -n monitoring -o jsonpath='{{.spec.clusterIP}}')
+            # this is the cluster NodePort ip:
+            # prom_ip=$(kubectl get service prometheus-kube-prometheus-prometheus -n monitoring -o jsonpath='{{.spec.clusterIP}}')
 
-                # get grafana address from outside cluster
-                export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                kubectl config use-context karmada-host
+            # get grafana address from outside cluster
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context karmada-host
 
-                kind_node_ip=$(docker inspect -f '{{{{range.NetworkSettings.Networks}}}}{{{{.IPAddress}}}}{{{{end}}}}' karmada-host-control-plane)
-                grafana_port=$(kubectl get svc -n monitoring prometheus-grafana -o jsonpath='{{.spec.ports[?(@.name=="http-web")].nodePort}}')
+            kind_node_ip=$(docker inspect -f '{{{{range.NetworkSettings.Networks}}}}{{{{.IPAddress}}}}{{{{end}}}}' karmada-host-control-plane)
+            grafana_port=$(kubectl get svc -n monitoring prometheus-grafana -o jsonpath='{{.spec.ports[?(@.name=="http-web")].nodePort}}')
 
-                cd /root/.smo
-                perl -pi -e "s;  host: http://.*;  host: http://${{kind_node_ip}}:${{grafana_port}};g" config.yaml
+            cd /root/.smo
+            perl -pi -e "s;  host: http://.*;  host: http://${{kind_node_ip}}:${{grafana_port}};g" config.yaml
             """
         ],
         _shell_executable="/bin/bash",
@@ -158,14 +158,14 @@ def smo_cluster_sync() -> None:
     result = server.shell(
         name="Exec smo-cli cluster sync",
         commands=[
-            f"""\
-                cd {REPO}
-                . .venv/bin/activate
+            f"""
+            cd {REPO}
+            . .venv/bin/activate
 
-                export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                kubectl config use-context karmada-apiserver
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context karmada-apiserver
 
-                smo-cli cluster sync
+            smo-cli cluster sync
             """
         ],
         _shell_executable="/bin/bash",
@@ -182,15 +182,15 @@ def smo_show_graph() -> None:
     result = server.shell(
         name="Exec smo-cli graph list",
         commands=[
-            f"""\
-                cd {REPO}
-                . .venv/bin/activate
+            f"""
+            cd {REPO}
+            . .venv/bin/activate
 
-                export KUBECONFIG="/root/.kube/karmada-apiserver.config"
-                kubectl config use-context karmada-apiserver
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context karmada-apiserver
 
-                echo "graph list:"
-                smo-cli graph list
+            echo "graph list:"
+            smo-cli graph list
             """
         ],
         _shell_executable="/bin/bash",

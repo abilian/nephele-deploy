@@ -3,7 +3,7 @@ Minimal recipe build for the hello-world app.
 
 Warning: connection as user root.
 
-pyinfra -y -v --user root ${SERVER_NAME} 12-deploy-demo-hello-world.py
+pyinfra -y -v --user root ${SERVER_NAME} 12-deploy-smo-demo-hello-world.py
 """
 
 from pyinfra import host
@@ -19,48 +19,60 @@ REGISTRY_URL = "http://host.docker.internal:5000"
 DEMO = f"{GITS}/h3ni-demos/0-hello-world-demo"
 PROJECT = "demo0"
 GRAPH_NAME = "hello-world-graph"
+SMO_MONO = "smo-monorepo"
+REPO = f"{GITS}/{SMO_MONO}"
+SMO_CLI = "/usr/local/bin/smo-cli"
 INTERNAL_IP = "host.docker.internal"
 
 
-def make_graph_delete_cmd(graph: str) -> str:
-    return f"curl -X DELETE {SMO_URL}/graphs/{graph}"
+# def make_graph_delete_cmd(graph: str) -> str:
+#     return f"curl -X DELETE {SMO_URL}/graphs/{graph}"
 
 
-def make_deploy_command(project: str, graph: str) -> str:
-    data = f'{{"artifact": "{REGISTRY_URL}/{project}/{graph}"}}'
-    cmd = (
-        f'curl -X POST "{SMO_URL}/project/{project}/graphs" '
-        '-H "Content-Type: application/json" '
-        f"--data '{data}'"
-    )
-    return cmd
+# def make_deploy_command(project: str, graph: str) -> str:
+#     data = f'{{"artifact": "{REGISTRY_URL}/{project}/{graph}"}}'
+#     cmd = (
+#         f'curl -X POST "{SMO_URL}/project/{project}/graphs" '
+#         '-H "Content-Type: application/json" '
+#         f"--data '{data}'"
+#     )
+#     return cmd
 
 
-def make_graph_list_command(project: str) -> str:
-    return f'curl -X GET "{SMO_URL}/project/{project}/graphs"'
+# def make_graph_list_command(project: str) -> str:
+#     return f'curl -X GET "{SMO_URL}/project/{project}/graphs"'
 
 
-def make_clusters_list_command() -> str:
-    return f'curl -X GET "{SMO_URL}/clusters/"'
+# def make_clusters_list_command() -> str:
+#     return f'curl -X GET "{SMO_URL}/clusters/"'
 
 
 def main() -> None:
     clean_installed_graphs()
     prepare_hello_world()
     deploy_on_smo()
-    check_graph_list()
-    check_clusters()
+    smo_show_graph_list()
+    # check_clusters()
     find_kubernetes_pods()
     find_demo0()
 
 
 def clean_installed_graphs() -> None:
-    for name in ("hello-world-graph", "image-detection-graph"):
-        cmd = make_graph_delete_cmd(name)
+    for name in (GRAPH_NAME, "image-detection-graph"):
         server.shell(
             name=f"Remove prior known graph {name}",
             # commands=[(f"yes | {SMO_CLI} graph remove {name} || true")],
-            commands=[f"{cmd} || true"],
+            commands=[
+                f"""
+                cd {REPO}
+                . .venv/bin/activate
+
+                export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+                kubectl config use-context karmada-apiserver
+
+                yes | {SMO_CLI} graph remove {name} || true
+                """
+            ],
             _get_pty=True,
             _shell_executable="/bin/bash",
         )
@@ -70,12 +82,14 @@ def prepare_hello_world() -> None:
     ips = host.get_fact(Ipv4Addrs)
     eth0 = ips["eth0"][0]
     server.shell(
-        name="Fix image name and address",
+        name="Adapt image name and address",
         commands=[
             f"""
             cd {DEMO}/hdag
 
-            perl -pi -e 's/127.0.0.1/{INTERNAL_IP}/g' hdag.yaml
+            # keep localhost, deploying from outside cluster
+            # perl -pi -e 's/127.0.0.1/{INTERNAL_IP}/g' hdag.yaml
+            perl -pi -e 's/{INTERNAL_IP}/127.0.0.1/g' hdag.yaml
 
             perl -pi -e 's;test/hello-world;demo0/hello-world;g' hdag.yaml
 
@@ -92,7 +106,7 @@ def prepare_hello_world() -> None:
     )
 
     server.shell(
-        name="Prepare hello-world-graph",
+        name=f"Prepare {GRAPH_NAME}",
         commands=[
             f"""
             cd {TOP_DIR}
@@ -108,48 +122,68 @@ def prepare_hello_world() -> None:
 
 
 def deploy_on_smo() -> None:
-    cmd = make_deploy_command(PROJECT, GRAPH_NAME)
+    DESCRIPTOR = f"{DEMO}/hdag/hdag.yaml"
     result = server.shell(
-        name="Deploy hello-world-graph to smo",
-        commands=[cmd],
+        name=f"Deploy {GRAPH_NAME}",
+        commands=[
+            f"""
+            cd {REPO}
+            . .venv/bin/activate
+
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context karmada-apiserver
+
+            {SMO_CLI} graph deploy --project {PROJECT} {DESCRIPTOR}
+        """
+        ],
         _get_pty=True,
         _shell_executable="/bin/bash",
     )
     python.call(
-        name="Show deploying hello-world-graph",
+        name=f"Show deploying {GRAPH_NAME}",
         function=log_callback,
         result=result,
     )
 
 
-def check_graph_list() -> None:
-    cmd = make_graph_list_command(PROJECT)
+def smo_show_graph_list() -> None:
     result = server.shell(
-        name="Get graph list",
-        commands=[cmd],
-        _get_pty=True,
+        name="Exec smo-cli graph list",
+        commands=[
+            f"""\
+            cd {REPO}
+            . .venv/bin/activate
+
+            export KUBECONFIG="/root/.kube/karmada-apiserver.config"
+            kubectl config use-context karmada-apiserver
+
+            echo "graph list:"
+            smo-cli graph list
+            """
+        ],
         _shell_executable="/bin/bash",
+        _get_pty=True,
     )
     python.call(
-        name="Show graph list",
+        name="Show smo-cli graph list",
         function=log_callback,
         result=result,
     )
 
 
-def check_clusters() -> None:
-    cmd = make_clusters_list_command()
-    result = server.shell(
-        name="Get clusters list",
-        commands=[cmd],
-        _get_pty=True,
-        _shell_executable="/bin/bash",
-    )
-    python.call(
-        name="Show clusters list",
-        function=log_callback,
-        result=result,
-    )
+# def check_clusters() -> None:
+#     cmd = make_clusters_list_command()
+#     result = server.shell(
+#         name="Get clusters list",
+#         commands=[cmd],
+#         _get_pty=True,
+#         _shell_executable="/bin/bash",
+#     )
+#     python.call(
+#         name="Show clusters list",
+#         function=log_callback,
+#         result=result,
+#     )
 
 
 def find_kubernetes_pods() -> None:
