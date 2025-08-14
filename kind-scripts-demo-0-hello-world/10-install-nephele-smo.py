@@ -100,7 +100,7 @@ def install_smo() -> None:
 
 def make_smo_tests() -> None:
     server.shell(
-        name="make smo tests",
+        name="Make smo tests",
         commands=[
             f"""
                 cd {REPO}
@@ -139,7 +139,7 @@ def configure_smo_ip() -> None:
     )
 
     result = server.shell(
-        name="get grafana IP and password",
+        name="Get grafana IP and password",
         commands=[
             f"""
             cd {REPO}
@@ -172,8 +172,8 @@ def configure_smo_ip() -> None:
 
 
 def start_smo() -> None:
-    result = server.shell(
-        name="Fix .doker access",
+    server.shell(
+        name="Fix .docker access",
         commands=[
             """\
                 chmod 777 /root/.docker
@@ -182,11 +182,6 @@ def start_smo() -> None:
         ],
         _shell_executable="/bin/bash",
         _get_pty=True,
-    )
-    python.call(
-        name="Show staet smo",
-        function=log_callback,
-        result=result,
     )
 
     result = server.shell(

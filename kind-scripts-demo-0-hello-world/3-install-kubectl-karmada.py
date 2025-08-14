@@ -142,7 +142,7 @@ def install_karmada_clusters() -> None:
     )
 
     server.shell(
-        name="patch lind config",
+        name="Modify kind config for access to registry",
         commands=[
             dedent(f"""\
             cd {GITS}/karmada/artifacts/kindClusterConfig/
@@ -211,7 +211,7 @@ def install_karmada_clusters() -> None:
 
     result = server.shell(
         name="Get kind clusters",
-        commands=["kind get clusters"],
+        commands=["echo", "kind get clusters"],
     )
     python.call(
         name="Show kind clusters",
@@ -220,7 +220,7 @@ def install_karmada_clusters() -> None:
     )
 
     server.shell(
-        name="Fix missing part",
+        name="Fix karmada-aggregated-apiserver",
         commands=[
             """\
 export KUBECONFIG=/root/.kube/karmada.config
@@ -265,12 +265,13 @@ EOF
     result = server.shell(
         name="Get Karmada Control Plane Pods",
         commands=[
+            "echo",
             (
                 """
                 export KUBECONFIG=/root/.kube/karmada.config
                 kubectl --context karmada-host get pods -n karmada-system
                 """
-            )
+            ),
         ],
     )
     python.call(
@@ -282,12 +283,13 @@ EOF
     result = server.shell(
         name="Get Karmada member1 Pods",
         commands=[
+            "echo",
             (
                 """
                 export KUBECONFIG=/root/.kube/members.config
                 kubectl --context member1 get pods -A
                 """
-            )
+            ),
         ],
     )
     python.call(

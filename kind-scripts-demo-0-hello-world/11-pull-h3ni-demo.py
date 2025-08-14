@@ -26,7 +26,6 @@ REPO = f"{GITS}/{DEMO_DIR}"
 SMO_REPO = f"{GITS}/{SMO_DIR}"
 
 
-
 def main() -> None:
     make_git_directory()
     pull_smo_monorepo()
@@ -68,7 +67,7 @@ def pull_h3ni_demo() -> None:
     )
 
     server.shell(
-        name=f"uv sync {DEMO_DIR}",
+        name=f"Install {DEMO_DIR}",
         commands=[
             f"""
             cd {REPO}
