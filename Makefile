@@ -8,38 +8,21 @@ SERVER_NAME?=nephele
 
 ## Deployment Makefile for Karmada on kind
 
-deploy-kind:
-	cd kind-scripts ; pyinfra -y --user root inventory.py \
-		0-setup-server.py \
-		1-deploy-karmada-on-kind.py \
-		2-install-prometheus-on-kind.py \
-		3-install-prometheus-crds-on-kind.py \
-		4-install-metrics-server-kind.py \
-		6-install-some-kind-cluster.py \
-		7-build-bxl-demo-local-kind.py
 
-deploy-demo0:
-	$(MAKE) -C kind-scripts-demo0
+deploy-demo0-nephele:
+	$(MAKE) -C kind-scripts-demo-0-hello-world
 
-deploy-demo1:
-	$(MAKE) -C kind-scripts-demo1
+deploy-demo0-smo-cli:
+	$(MAKE) -C kind-scripts-demo-0-hello-world-smo-mono
 
 deploy-demo2:
-	$(MAKE) -C kind-scripts-demo2
+	$(MAKE) -C kind-scripts-demo-2-gpu-offloading
 
-deploy-demo3:
-	$(MAKE) -C kind-scripts-demo3
+deploy-bxl:
+	$(MAKE) -C kind-scripts-demo-bxl
 
-## Deployment Makefile for Karmada on microk8s (not fully working)
-deploy:
-	pyinfra -y --user root inventory.py 0-setup-server.py
-	pyinfra -y --user root inventory.py 1-build-bxl-demo.py
-	pyinfra -y --user root inventory.py 2-deploy-karmada-on-mk8s.py
-	pyinfra -y --user root inventory.py 3-more.py
-
-## Make a movie
-make-movie:
-	asciinema rec -c "make deploy-kind" -e SERVER_NAME
+deploy-nginx:
+	$(MAKE) -C kind-scripts-demo-nginx
 
 
 ## Synchronize code with the remote repositories
@@ -66,4 +49,4 @@ sync-with-server:
 	watchfiles "rsync -e ssh -avz bash-scripts/ root@${SERVER_NAME}:/root/scripts/" bash-scripts/
 
 
-.PHONY: deploy sync-code push-code format deploy-kind deploy-demo0 deploy-demo1
+.PHONY: sync-code push-code format deploy-demo0-nephele deploy-demo0-smo-cli deploy-demo2 deploy-bxl deploy-nginx
