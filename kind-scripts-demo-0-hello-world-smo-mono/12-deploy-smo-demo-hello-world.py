@@ -25,28 +25,6 @@ SMO_CLI = "/usr/local/bin/smo-cli"
 INTERNAL_IP = "host.docker.internal"
 
 
-# def make_graph_delete_cmd(graph: str) -> str:
-#     return f"curl -X DELETE {SMO_URL}/graphs/{graph}"
-
-
-# def make_deploy_command(project: str, graph: str) -> str:
-#     data = f'{{"artifact": "{REGISTRY_URL}/{project}/{graph}"}}'
-#     cmd = (
-#         f'curl -X POST "{SMO_URL}/project/{project}/graphs" '
-#         '-H "Content-Type: application/json" '
-#         f"--data '{data}'"
-#     )
-#     return cmd
-
-
-# def make_graph_list_command(project: str) -> str:
-#     return f'curl -X GET "{SMO_URL}/project/{project}/graphs"'
-
-
-# def make_clusters_list_command() -> str:
-#     return f'curl -X GET "{SMO_URL}/clusters/"'
-
-
 def main() -> None:
     clean_installed_graphs()
     prepare_hello_world()
@@ -134,7 +112,7 @@ def deploy_on_smo() -> None:
             kubectl config use-context karmada-apiserver
 
             {SMO_CLI} graph deploy --project {PROJECT} {DESCRIPTOR}
-        """
+        """,
         ],
         _get_pty=True,
         _shell_executable="/bin/bash",

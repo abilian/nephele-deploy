@@ -228,7 +228,7 @@ def install_prometheus_crds_member(mid: int) -> None:
     )
 
     result = server.shell(
-        name=f"Install monitor crds for member{mid}",
+        name=f"Install monitoring CRDs for member{mid}",
         commands=[
             f"""
             {member_ctx}
@@ -248,7 +248,7 @@ def install_prometheus_crds_member(mid: int) -> None:
         _shell_executable="/bin/bash",
     )
     python.call(
-        name=f"Show installed monitor crds for for member{mid}",
+        name=f"Show installed monitoring CRDs for member{mid}",
         function=log_callback,
         result=result,
     )

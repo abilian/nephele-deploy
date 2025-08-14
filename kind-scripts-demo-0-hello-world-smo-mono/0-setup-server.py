@@ -292,7 +292,7 @@ def start_docker_registry() -> None:
 
     result = server.shell(
         name="Check containers",
-        commands=["docker container ls -a"],
+        commands=["echo", "docker container ls -a"],
     )
     python.call(
         name="Show containers list",

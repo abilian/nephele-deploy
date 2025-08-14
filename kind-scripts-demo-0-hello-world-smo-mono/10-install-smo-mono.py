@@ -166,7 +166,7 @@ def smo_cluster_sync() -> None:
             kubectl config use-context karmada-apiserver
 
             smo-cli cluster sync
-            """
+            """,
         ],
         _shell_executable="/bin/bash",
         _get_pty=True,

@@ -111,7 +111,7 @@ def remove_prior_prometheus_cluster() -> None:
             export KUBECONFIG="{KCONFIG}"
             kubectl config use-context karmada-host
 
-            helm uninstall prometheus -n monitoring
+            helm uninstall prometheus -n monitoring || true
             """
         ],
         _ignore_errors=True,
@@ -162,6 +162,7 @@ def install_kube_prometheus_stack_v3():
         # prometheus/prometheus:v3.5.0
         name="Install kube prometheus stack",
         commands=[
+            "echo",
             """
             export KUBECONFIG="/root/.kube/karmada-apiserver.config"
             kubectl config use-context karmada-host
@@ -169,8 +170,7 @@ def install_kube_prometheus_stack_v3():
             helm install prometheus \
             --create-namespace -n monitoring \
             prometheus-community/kube-prometheus-stack \
-            --values /root/prom-values.yaml \
-            --debug
+            --values /root/prom-values.yaml
 
             echo "-------------------\nkubectl -n monitoring get pods:"
             kubectl -n monitoring get pods
@@ -180,7 +180,7 @@ def install_kube_prometheus_stack_v3():
 
             echo "-------------------\nkubectl get crds | grep 'monitoring.coreos.com':"
             kubectl get crds | grep 'monitoring.coreos.com'
-            """
+            """,
         ],
         _shell_executable="/bin/bash",
     )
@@ -199,7 +199,7 @@ def install_service_monitor_crds_in_api_server() -> None:
     )
 
     result = server.shell(
-        name="Install monitor crds for karmada-apiserver",
+        name="Install monitoring CRDs for karmada-apiserver",
         commands=[
             f"""
             export KUBECONFIG="/root/.kube/karmada-apiserver.config"
@@ -222,7 +222,7 @@ def install_service_monitor_crds_in_api_server() -> None:
         _shell_executable="/bin/bash",
     )
     python.call(
-        name="Show installed monitor crds for karmada-apiserver",
+        name="Show installed monitoring CRDs for karmada-apiserver",
         function=log_callback,
         result=result,
     )
